@@ -1,13 +1,13 @@
 import json
 import sys
-sys.path.append("src/sctipts/tools/")
+sys.path.append("src/scripts/tools/")
 import pathes
 
 data : dict = dict()
 key  : str  = str()
 day  : str  = str()
 
-with open(pathes.PATH_TO_TIMETABLE_TXT, "r", encoding = "utf8") as file:
+with open(pathes.TIMETABLE_TXT, "r", encoding = "utf8") as file:
     for line in file:  
         line = line.replace('\n', '')  
         if "class" in line[:-1]:
@@ -27,6 +27,6 @@ with open(pathes.PATH_TO_TIMETABLE_TXT, "r", encoding = "utf8") as file:
 
             data[key][day][parsedLine[0]] = parsedLine[1]
 
-with open(pathes.PATH_TO_TIMETABLE_JSON, "w",  encoding = "utf8") as file:
+with open(pathes.TIMETABLE_JSON, "w",  encoding = "utf8") as file:
     jsonData = json.dumps(data, indent = 4, ensure_ascii = False)
     file.write(jsonData)

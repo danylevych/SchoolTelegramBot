@@ -1,12 +1,13 @@
 import json
 import sys
-sys.path.append("src/sctipts/tools/")
+sys.path.append("src/scriptsr/tools/")
 import pathes
 
 
 def GetPhoneNum(phone : str):
     if int(phone) == 0:
         return None
+    phone = phone[1 : ]
     resultStr : str = "+380 ("
     resultStr += phone[ : 2] + ") "
     phone = phone[2 : ]
@@ -24,7 +25,7 @@ data : list = list()
 
 # Прізвище ім'я побатькові клас_який_навчає [предмети та класи] телефон чи адмін 
 
-with open(pathes.PATH_TO_TEACHERS_TXT, "r", encoding = "utf8") as file:
+with open(pathes.TEACHERS_TXT, "r", encoding = "utf8") as file:
     for line in file:  
         line = line.replace('\n', '')
         
@@ -71,6 +72,6 @@ with open(pathes.PATH_TO_TEACHERS_TXT, "r", encoding = "utf8") as file:
         data.append(teacher)
         
 
-with open(pathes.PATH_TO_TEACHERS_JSON, "w",  encoding = "utf8") as file:
+with open(pathes.TEACHERS_JSON, "w",  encoding = "utf8") as file:
     jsonData = json.dumps(data, indent = 4, ensure_ascii = False)
     file.write(jsonData)

@@ -1,0 +1,104 @@
+import sys
+import pytz
+from datetime import time, datetime
+sys.path.append("src/scripts/tools/")
+import pathes
+
+
+class FollowLesson:
+    def __init__(self, wichClass: int):
+        self.wichClass = str(wichClass)
+        self.timetableLessons = dict()
+        self.currentDay = datetime.now(pytz.timezone('Europe/Kiev')).strftime('%A').lower()
+        
+        with open(pathes.TIMETABLE_LESSONS_JSON, "r") as file:
+            import json
+            tempData = json.load(file)["class" + self.wichClass]
+            for (numLesson, period) in tempData.items():
+                self.timetableLessons[numLesson] = {
+                    "startTime": time(period["startTime"]["hour"], period["startTime"]["minute"]),
+                    "endTime": time(period["endTime"]["hour"], period["endTime"]["minute"])
+                }
+    
+    def FindLastLesson(self):
+        lastLesson = None
+        if self.currentDay in ("monday", "tuesday", "wednesday", "thursday", "friday"):
+            import json
+            with open(pathes.TIMETABLE_JSON, "r", encoding="utf8") as file:
+                dayTimeTable = json.load(file)["class" + self.wichClass][self.currentDay]
+                lastLesson = dayTimeTable.items()
+                for item in dayTimeTable:
+                    if dayTimeTable[item] is not None:
+                        lastLesson = item
+        return lastLesson
+    
+    
+    def GetCurrentLesson(self):
+        """
+        This method returns the set of data represented in the following format:
+        "requestTime"           - the time when the request was created.
+        "isBreak"               - Is it currently a break?
+        "isHoliday"             - Is today a holiday?
+        "infoLesson"            - the info about the current lesson.
+                "name"          - name of the lesson.
+                "startTime"     - starting time of the lesson.
+                "endTime"       - ending time of the lesson.
+        If the study day has ended, it returns None.
+        """
+        import json
+
+        currentTime = datetime.now(pytz.timezone('Europe/Kiev')).time()
+
+        firstLesson = '1'
+        lastLesson = self.FindLastLesson()
+
+        if lastLesson is None:
+            return {
+                "requestTime": currentTime,
+                "isBreak": False,
+                "isHoliday": True,
+                "infoLesson": None
+            }
+
+        if self.timetableLessons[firstLesson]["startTime"] <= currentTime <= self.timetableLessons[lastLesson]["endTime"]:
+            for (numLesson, period) in self.timetableLessons.items():
+                if period["startTime"] <= currentTime <= period["endTime"]:
+                    with open(pathes.TIMETABLE_JSON, "r", encoding="utf8") as file:
+                        name = json.load(file)["class" + self.wichClass][self.currentDay][numLesson]
+
+                        return {
+                            "requestTime": currentTime,
+                            "isBreak": False,
+                            "isHoliday": False,
+                            "infoLesson": {
+                                "name": name,
+                                "startTime": period["startTime"],
+                                "endTime": period["endTime"]
+                            }
+                        }
+
+            # If it's a break, find the next lesson
+            nextLesson = None
+            nextStartTime = None
+            for (numLesson, period) in self.timetableLessons.items():
+                if period["startTime"] > currentTime:
+                    nextLesson = numLesson
+                    nextStartTime = period["startTime"]
+                    break
+
+            if nextLesson:
+                with open(pathes.TIMETABLE_JSON, "r", encoding="utf8") as file:
+                    name = json.load(file)["class" + self.wichClass][self.currentDay][nextLesson]
+
+                    return {
+                        "requestTime": currentTime,
+                        "isBreak": True,
+                        "isHoliday": False,
+                        "infoLesson": {
+                            "name": name,
+                            "startTime": nextStartTime,
+                            "endTime": self.timetableLessons[nextLesson]["endTime"]
+                        }
+                    }
+
+        return None  # The study day has ended.
