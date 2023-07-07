@@ -1,5 +1,6 @@
 import sys
 import pytz
+import asyncio
 from datetime import time, datetime
 sys.path.append("src/scripts/tools/")
 import pathes
@@ -52,7 +53,7 @@ class FollowLesson:
         firstLesson = '1'
         lastLesson = self.FindLastLesson()
 
-        if lastLesson is None:
+        if lastLesson is None:  # We have a holiday.
             return {
                 "requestTime": currentTime,
                 "isBreak": False,
@@ -60,6 +61,7 @@ class FollowLesson:
                 "infoLesson": None
             }
 
+        # Current time has plased in borders from first lesson start time to last lesson end time.
         if self.timetableLessons[firstLesson]["startTime"] <= currentTime <= self.timetableLessons[lastLesson]["endTime"]:
             for (numLesson, period) in self.timetableLessons.items():
                 if period["startTime"] <= currentTime <= period["endTime"]:
@@ -102,3 +104,8 @@ class FollowLesson:
                     }
 
         return None  # The study day has ended.
+
+
+    async def GetCurrentLessonAsync(self):  # Use only for async functions. 
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(None, self.GetCurrentLesson)
