@@ -20,7 +20,7 @@ class FollowLesson:
             for (numLesson, period) in tempData.items():
                 self.timetableLessons[numLesson] = {
                     "startTime": time(period["startTime"]["hour"], period["startTime"]["minute"]),
-                    "endTime": time(period["endTime"]["hour"], period["endTime"]["minute"])
+                    "endTime"  : time(period["endTime"]["hour"], period["endTime"]["minute"])
                 }
     
     
@@ -90,8 +90,8 @@ class FollowLesson:
                         "isHoliday"     : False,
                         "infoLesson"    : {
                             "name"      : nextLesson[0],
-                            "startTime" : nextLesson[1],
-                            "endTime"   : self.timetableLessons[nextLesson]["endTime"]
+                            "startTime" : nextLesson[2],
+                            "endTime"   : self.timetableLessons[nextLesson[1]]["endTime"]
                         }
                     }
 
@@ -99,19 +99,18 @@ class FollowLesson:
 
 
     def GetNextLesson(self, time):
-        nextLesson = None
+        """
+        [0] - name
+        [1] - order number
+        [2] - start time
+        """
         nextStartTime = None
         for (numLesson, period) in self.timetableLessons.items():
             if period["startTime"] > time:
-                nextLesson = numLesson
                 nextStartTime = period["startTime"]
-                break
-
-        if nextLesson:
-            with open(pathes.TIMETABLE_JSON, "r", encoding="utf8") as file:
-                name = json.load(file)["class" + self.wichClass][self.currentDay][nextLesson]
-
-                return (name, nextStartTime)
+                with open(pathes.TIMETABLE_JSON, "r", encoding = "utf8") as file:
+                    name = json.load(file)["class" + self.wichClass][self.currentDay][numLesson]
+                return (name, numLesson, nextStartTime)
     
     
     async def GetCurrentLessonAsync(self):  # Use only for async functions. 
