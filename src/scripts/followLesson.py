@@ -1,11 +1,13 @@
 import sys
 import pytz
+import json
 import asyncio
 from datetime import time, datetime
 sys.path.append("src/scripts/tools/")
 import pathes
 
 
+# This class privide access to cutrently timetable for some school class.
 class FollowLesson:
     def __init__(self, wichClass: int):
         self.wichClass = str(wichClass)
@@ -21,10 +23,11 @@ class FollowLesson:
                     "endTime": time(period["endTime"]["hour"], period["endTime"]["minute"])
                 }
     
+    
     def FindLastLesson(self):
         lastLesson = None
         if self.currentDay in ("monday", "tuesday", "wednesday", "thursday", "friday"):
-            import json
+            
             with open(pathes.TIMETABLE_JSON, "r", encoding="utf8") as file:
                 dayTimeTable = json.load(file)["class" + self.wichClass][self.currentDay]
                 lastLesson = dayTimeTable.items()
@@ -46,7 +49,6 @@ class FollowLesson:
                 "endTime"       - ending time of the lesson.
         If the study day has ended, it returns None.
         """
-        import json
 
         currentTime = datetime.now(pytz.timezone('Europe/Kiev')).time()
 
@@ -69,43 +71,49 @@ class FollowLesson:
                         name = json.load(file)["class" + self.wichClass][self.currentDay][numLesson]
 
                         return {
-                            "requestTime": currentTime,
-                            "isBreak": False,
-                            "isHoliday": False,
-                            "infoLesson": {
-                                "name": name,
-                                "startTime": period["startTime"],
-                                "endTime": period["endTime"]
+                            "requestTime"   : currentTime,
+                            "isBreak"       : False,
+                            "isHoliday"     : False,
+                            "infoLesson"    : {
+                                    "name"      : name,
+                                    "startTime" : period["startTime"],
+                                    "endTime"   : period["endTime"]
+                                }
                             }
-                        }
 
             # If it's a break, find the next lesson
-            nextLesson = None
-            nextStartTime = None
-            for (numLesson, period) in self.timetableLessons.items():
-                if period["startTime"] > currentTime:
-                    nextLesson = numLesson
-                    nextStartTime = period["startTime"]
-                    break
-
+            nextLesson = self.GetNextLesson(currentTime)
             if nextLesson:
-                with open(pathes.TIMETABLE_JSON, "r", encoding="utf8") as file:
-                    name = json.load(file)["class" + self.wichClass][self.currentDay][nextLesson]
-
-                    return {
-                        "requestTime": currentTime,
-                        "isBreak": True,
-                        "isHoliday": False,
-                        "infoLesson": {
-                            "name": name,
-                            "startTime": nextStartTime,
-                            "endTime": self.timetableLessons[nextLesson]["endTime"]
+                return {
+                        "requestTime"   : currentTime,
+                        "isBreak"       : True,
+                        "isHoliday"     : False,
+                        "infoLesson"    : {
+                            "name"      : nextLesson[0],
+                            "startTime" : nextLesson[1],
+                            "endTime"   : self.timetableLessons[nextLesson]["endTime"]
                         }
                     }
 
         return None  # The study day has ended.
 
 
+    def GetNextLesson(self, time):
+        nextLesson = None
+        nextStartTime = None
+        for (numLesson, period) in self.timetableLessons.items():
+            if period["startTime"] > time:
+                nextLesson = numLesson
+                nextStartTime = period["startTime"]
+                break
+
+        if nextLesson:
+            with open(pathes.TIMETABLE_JSON, "r", encoding="utf8") as file:
+                name = json.load(file)["class" + self.wichClass][self.currentDay][nextLesson]
+
+                return (name, nextStartTime)
+    
+    
     async def GetCurrentLessonAsync(self):  # Use only for async functions. 
         loop = asyncio.get_event_loop()
         return await loop.run_in_executor(None, self.GetCurrentLesson)
