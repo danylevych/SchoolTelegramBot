@@ -41,13 +41,19 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def CheckAirDangerous(context : CallbackContext):
-    state = await requests.request("https://ubilling.net.ua/aerialalerts/")["states"]["Луганська область"]
+    state = await requests.get("https://ubilling.net.ua/aerialalerts/").json()["states"]["Луганська область"]
+    
+    # TODO: will try to save the data of current state in context.caht_data and read this stuff from it
+    
     if state["alertnow"]:
-        await context.bot.send_message(chat_id = context.user_data.get("user").get("_id"),
-                                    text = "УВАГА!\nОголошена повітряна тривога!\n" + 
-                                    "Уроки призупинені!\n" + 
-                                    "Пройдіть в укриття!\n" + 
-                                    "Бережіться. Цьом)")
+        users = mongo.users.find()  # Get all users.
+        for user in users:
+            await context.bot.send_message(chat_id = user.get("_id"),
+                                            text = "УВАГА!\nОголошена повітряна тривога!\n" + 
+                                            "Уроки призупинені!\n" + 
+                                            "Пройдіть в укриття!\n" + 
+                                            "Бережіться. Цьом)")
+
 
 async def send_lesson_start_notification(context : CallbackContext):
     followLesson = FollowLesson(int(context.user_data.get("user").get("class")))
