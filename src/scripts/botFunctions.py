@@ -1,10 +1,12 @@
 import sys
 sys.path.append("src/scripts/tools")
 import pathes
+import mongo
 from phrases import PhrasesGenerator
 
 import json
 import asyncio
+import requests
 from followLesson import FollowLesson
 from telegram import Update, ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemove
 from telegram.ext import CallbackContext, ContextTypes
@@ -20,11 +22,11 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["user"] = dict()
     
     if UserExist(update.effective_chat.id, context):
-        context.job_queue.run_repeating(send_lesson_start_notification, interval = 2, first = 0, user_id = context.user_data.get("user").get("id"))
+        context.job_queue.run_repeating(send_lesson_start_notification, interval = 2, first = 0, user_id = context.user_data.get("user").get("_id"))
     
     else:
         context.user_data["user"]["firstStartCalling"] = True
-        context.user_data["user"]["id"] = update.effective_chat.id
+        context.user_data["user"]["_id"] = update.effective_chat.id
 
         await update.message.reply_text(f"Привіт, {update.effective_user.full_name}.")
 
@@ -38,7 +40,16 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                         reply_markup = reply_markup)
 
 
-async def send_lesson_start_notification(context: CallbackContext):
+async def CheckAirDangerous(context : CallbackContext):
+    state = await requests.request("https://ubilling.net.ua/aerialalerts/")["states"]["Луганська область"]
+    if state["alertnow"]:
+        await context.bot.send_message(chat_id = context.user_data.get("user").get("_id"),
+                                    text = "УВАГА!\nОголошена повітряна тривога!\n" + 
+                                    "Уроки призупинені!\n" + 
+                                    "Пройдіть в укриття!\n" + 
+                                    "Бережіться. Цьом)")
+
+async def send_lesson_start_notification(context : CallbackContext):
     followLesson = FollowLesson(int(context.user_data.get("user").get("class")))
     lessonData = await followLesson.GetCurrentLessonAsync()
     
@@ -51,7 +62,7 @@ async def send_lesson_start_notification(context: CallbackContext):
                     return
             
             # Sending.
-            await context.bot.send_message(chat_id = context.user_data.get("user").get("id"), 
+            await context.bot.send_message(chat_id = context.user_data.get("user").get("_id"), 
                                             text = PhrasesGenerator(lessonData["infoLesson"]["name"], 
                                                                     pathes.START_LESSON_PHRASES_TXT).GetRandomPhrase() +
                                             "\nПочаток уроку : {}".format(lessonData["infoLesson"]["startTime"]) + 
@@ -69,7 +80,7 @@ async def send_lesson_start_notification(context: CallbackContext):
                     return
             
             # Sending.
-            await context.bot.send_message(chat_id = context.user_data.get("user").get("id"), 
+            await context.bot.send_message(chat_id = context.user_data.get("user").get("_id"), 
                     text = PhrasesGenerator(lessonData["infoLesson"]["name"], 
                                             pathes.BREAK_PHRASES_TXT).GetRandomPhrase() +
                                             "\nПочаток уроку : {}".format(lessonData["infoLesson"]["startTime"]) + 
@@ -125,9 +136,18 @@ async def StudentNameInputHandler(message : str, chatId, context : CallbackConte
         await context.bot.send_message(chat_id = chatId, text = "Вітаємо")
         context.job_queue.run_repeating(send_lesson_start_notification, interval = 2, first = 0, user_id = chatId)
         
-
-        with open(pathes.USERS_JSON, 'w', encoding = "utf8") as file:
-            json.dump({ str(chatId) : context.user_data.get("user") }, file, indent = 4, ensure_ascii = False)
+        user = mongo.users.find_one({ "_id" : chatId })
+        if user:
+            # TODO: Update values.
+            pass
+        else:
+            user : dict = {
+                "_id"  : context.user_data.get("user").get("_id"),
+                "user" : context.user_data["user"]
+            }
+            mongo.users.insert_one(user)
+        # with open(pathes.USERS_JSON, 'w', encoding = "utf8") as file:
+        #     json.dump({ str(chatId) : context.user_data.get("user") }, file, indent = 4, ensure_ascii = False)
 
     else:
         await context.bot.send_message(chat_id = chatId, text = """
@@ -137,13 +157,19 @@ async def StudentNameInputHandler(message : str, chatId, context : CallbackConte
 
 
 def UserExist(chatId, context: ContextTypes.DEFAULT_TYPE):
-    if not isJsonEmpty(pathes.USERS_JSON):
-        with open(pathes.USERS_JSON, 'r', encoding="utf8") as file:
-            userData = json.load(file).get(str(chatId))
-            if userData:
-                context.user_data["user"] = userData
-                return True
+    user = mongo.users.find_one({ "_id" : chatId })
+    Log(user)
+    if user:
+        context.user_data["user"] = user["user"]
+        return True
     return False
+    # if not isJsonEmpty(pathes.USERS_JSON):
+    #     with open(pathes.USERS_JSON, 'r', encoding="utf8") as file:
+    #         userData = json.load(file).get(str(chatId))
+    #         if userData:
+    #             context.user_data["user"] = userData
+    #             return True
+    # return False
 
 def Log(msg):
     print("--" * 30)
