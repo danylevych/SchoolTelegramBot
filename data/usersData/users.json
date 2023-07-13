@@ -1,0 +1,56 @@
+[
+    {
+        "chatID": 1,
+        "fatherName": "Іванівна",
+        "firstName": "Дарина",
+        "lastName": "Мартинишин",
+        "phone": null,
+        "email": "Martushundarina@gmail.com",
+        "logIn": {
+            "login": "Daruna",
+            "password": "12345678"
+        },
+        "userType": {
+            "teacher": false,
+            "student": {
+                "class": 1
+            }
+        }
+    },
+    {
+        "chatID": 2,
+        "fatherName": "Дмитрівна",
+        "firstName": "Олеся",
+        "lastName": "Жемевка",
+        "phone": "+380 (68) 385 17 91",
+        "email": "zemvkaolesya@gmail.com",
+        "logIn": {
+            "login": "Olesyateacher",
+            "password": "iloveschool"
+        },
+        "userType": {
+            "teacher": {
+                "classTeacher": 3
+            },
+            "student": false
+        }
+    },
+    {
+        "chatID": 3,
+        "fatherName": "Ярославівна",
+        "firstName": "Наталія",
+        "lastName": "Карпин",
+        "phone": "+380 (96) 746 56 50",
+        "email": "karpunnataliya@gmail.com",
+        "logIn": {
+            "login": "Englishwoman",
+            "password": "iloveenglish"
+        },
+        "userType": {
+            "teacher": {
+                "classTeacher": 0
+            },
+            "student": false
+        }
+    }
+]

@@ -7,3 +7,27 @@
     Класний керівник
     Директо школи
 Нотатки
+
+
+user = {
+    "id"        : int,
+    "fatherName": "",
+    "firstName" : "",
+    "lastName"  : "",
+    "phone"     : null,
+    "email"     : ""
+    "logIn"     : {
+        "login" : "",
+        "password: "",
+    }
+    "userType" : {
+        "teacher" : {
+
+        }
+        "student" : 5
+    }
+}
+
+Перевірку на пошту!!!!!!!!
+перевірка логіна на початку
+Логін

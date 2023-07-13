@@ -1,6 +1,6 @@
 import json
 import sys
-sys.path.append("src/scriptsr/tools/")
+sys.path.append("src/scripts/tools/")
 import pathes
 
 
