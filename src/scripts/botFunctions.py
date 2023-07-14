@@ -22,8 +22,22 @@ def isJsonEmpty(file_path):
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["user"] = dict()
-    await update.message.reply_text(f"Привіт, {update.effective_user.full_name}.")
     
+    if user := ChatIdIExistInDB(update.effective_chat.id):
+        context.user_data["user"]["id"] = user.get("chatId")
+        
+        if user.get("userType").get("teacher"):
+            context.user_data["user"]["teachingClass"] = user.get("userType").get("teacher").get("class")
+        else:
+            context.user_data["user"]["class"] = user.get("userType").get("student").get("class")
+        
+        # TODO: Open fiches.
+    else:
+        await update.message.reply_text(f"Привіт, {update.effective_user.full_name}.")
+        await EntryMenu(update, context)
+
+
+async def EntryMenu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     signUp = KeyboardButton("Реєстрація")
     logIn  = KeyboardButton("Вхід")
     reply_markup = ReplyKeyboardMarkup([[signUp, logIn]], resize_keyboard=True)
@@ -32,24 +46,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     await asyncio.sleep(1)
     await context.bot.send_message(chat_id = update.effective_chat.id, text = "Оберіть дію", reply_markup = reply_markup)
-    
-    # if UserExist(update.effective_chat.id, context):
-    #     context.job_queue.run_repeating(send_lesson_start_notification, interval = 2, first = 0, user_id = context.user_data.get("user").get("_id"))
-    
-    # else:
-    #     context.user_data["user"]["firstStartCalling"] = True
-    #     context.user_data["user"]["_id"] = update.effective_chat.id
-
-    #     await update.message.reply_text(f"Привіт, {update.effective_user.full_name}.")
-
-    #     yes = KeyboardButton("Так")
-    #     no = KeyboardButton("Ні")
-    #     reply_markup = ReplyKeyboardMarkup([[yes, no]], resize_keyboard=True)
-
-    #     await asyncio.sleep(1)
-    #     await context.bot.send_message(chat_id = update.effective_chat.id,
-    #                                     text = "А ти навчаєшся в ЗОШ Вівня?",
-    #                                     reply_markup = reply_markup)
 
 
 async def CheckAirDangerous(context : CallbackContext):
@@ -112,7 +108,7 @@ async def send_lesson_start_notification(context : CallbackContext):
 
 async def MessagesHandler(update: Update, context: CallbackContext):
     if context.user_data.get("isEntryMenu"):
-        await EntryMenu(update.message.text, update.effective_chat.id, context, update.effective_message.id)
+        await EntryMenuHandler(update, context)
         
     
     # if context.user_data.get("user").get("firstStartCalling"):  # The first calling.
@@ -127,37 +123,78 @@ async def MessagesHandler(update: Update, context: CallbackContext):
 
 
 
-async def EntryMenu(message : str, chatId, context : CallbackContext, messageId):
+async def EntryMenuHandler(update : Update, context : CallbackContext):
+    message   : str = update.message.text
+    chatId    : int = update.effective_chat.id
+    messageId : int = update.effective_message.id
+    
     logInState : int = context.user_data.get("logInState", 0)
     signState  : int = context.user_data.get("signState", 0)
+    
+    # The buttons for issues.
+    yes = KeyboardButton("Так")
+    no = KeyboardButton("Ні")
+    replyMarkup = ReplyKeyboardMarkup([[yes, no]], resize_keyboard=True)
+    
     
     if "Вхід" in message:
         await context.bot.send_message(chat_id = chatId, text = "Введіть ваш логін", reply_markup = ReplyKeyboardRemove())
         context.user_data["logInState"] = 1  # User is going to send the login. 
         
     elif logInState == 1:
-        await context.bot.send_message(chat_id = chatId, text = "Введіть ваш пароль")
-        context.user_data["logIn"] = dict()
-        context.user_data["logIn"]["login"] = message
-        context.user_data["logInState"] = 2  # User is going to send the password.
+        if LoginExist(message):
+            await context.bot.send_message(chat_id = chatId, text = "Вітаю. Логін успішно прийнято.")
+            
+            context.user_data["logIn"] = dict()
+            context.user_data["logIn"]["login"] = message
+            context.user_data["logInState"] = 2  # User is going to send the password.
+            
+            await context.bot.send_message(chat_id = chatId, text = "Введіть ваш пароль.")
+            
+        else:
+            await context.bot.send_message(chat_id = chatId, text = "Зареєстрованого користувача із таким логіном немає!.")
+            await asyncio.sleep(1)
+            await context.bot.send_message(chat_id = chatId, text = "Можливо ви ввели щось неправильно. Спробувати ще раз?",
+                                            reply_markup = replyMarkup)
+            
+            context.user_data["logInState"] = -1
     
     elif logInState == 2:
         context.user_data["logIn"]["password"] = message
-        # await asyncio.sleep(5)
+        
+        await asyncio.sleep(1)
         await context.bot.delete_message(chat_id = chatId, message_id = messageId)
         await context.bot.send_message(chat_id = chatId, text = "Здійснюється перевірка введених даних. Зачекайте.")
         
         userLoginData = context.user_data.get("logIn")
         print(userLoginData)
-        if UserExistInDB(userLoginData):
-            print("now we here")
-            # TODO: open all fiches.
-            context.user_data["user"] = { "class", mongo.users.find_one({"logIn.login"   : userLoginData["login"], 
-                                                                        "logIn.password": userLoginData["password"]}).get("class") }
+        
+        if user := UserExistInDB(userLoginData):
+            context.user_data["user"]["id"] = chatId
+            
+            if user.get("userType").get("teacher"):
+                context.user_data["user"]["teachingClass"] = user.get("userType").get("teacher").get("class")
+            else:
+                context.user_data["user"]["class"] = user.get("userType").get("student").get("class")
+            
             del context.user_data["isEntryMenu"]
+            await context.bot.send_message(chat_id = chatId, text = "Вхід успішний!")
+            await asyncio.sleep(2)
+            
+            # TODO: open all fiches.
+            
         else:
-            await context.bot.send_message(chat_id = chatId, text = "Такого користувача не знайдено!")
-            # TODO: move to first menu.
+            await context.bot.send_message(chat_id = chatId, text = "Пароль неправильний!")
+            await asyncio.sleep(1)
+            await context.bot.send_message(chat_id = chatId, text = "Спробувати ще раз!", reply_markup = replyMarkup)
+            context.user_data["logInState"] = -2
+    
+    elif logInState == -1:
+        await YesNoEntryHandler(update, context, "logInState", 1, "Надішліть свій логін.", "Тоді вертаємося до початкового меню")
+    
+    elif logInState == -2:
+        await YesNoEntryHandler(update, context, "signState", 2, "Надішліть свій пароль.", "Тоді вертаємося до початкового меню")
+
     
     elif "Реєстрація" in message:
         await context.bot.send_message(chat_id = chatId, 
@@ -176,17 +213,11 @@ async def EntryMenu(message : str, chatId, context : CallbackContext, messageId)
                 "fatherName": splitedMsg[2],
             }
             
-            result = mongo.users.find_one(studentData)
-            
-            if result:
-                context.user_data["signState"] = -1  # User does not exist.
-                yes = KeyboardButton("Так")
-                no = KeyboardButton("Ні")
-                reply_markup = ReplyKeyboardMarkup([[yes, no]], resize_keyboard=True)
+            if mongo.users.find_one(studentData):
+                context.user_data["signState"] = -1  # User exists.
+                
                 await context.bot.send_message(chat_id = chatId, text = "Вибачте але такий користувач вже зареєстрований. Можливо ви помилилися, спробувати знову?",
-                                            reply_markup = reply_markup)
-                # del context.user_data["signState"] 
-                # TODO: Move to start funk.
+                                                reply_markup = replyMarkup)
             else:
                 context.user_data["signInfo"] = studentData
                 await context.bot.send_message(chat_id = chatId, text = "Наступний крок - введіть клас в якому ви навчаєтеся")
@@ -195,10 +226,8 @@ async def EntryMenu(message : str, chatId, context : CallbackContext, messageId)
         except:
             print("he wrote less args")
             await context.bot.send_message(chat_id = chatId, 
-                    text = "Виввели неправильну кількість даних.\n" +
-                    "Переконайтеся що попереднє повідомлення було коректне.\n" + 
-                    "Наприклад:\n\tПетренко Петро <- НЕПРАВИЛЬНО\n"+
-                    "\tПетренко Петро Петрович <- ПРАВИЛЬНО")
+                    text = "Виввели неправильну кількість даних.\nПереконайтеся що попереднє повідомлення було коректне.\n" + 
+                    "Наприклад:\n\tПетренко Петро <- НЕПРАВИЛЬНО\n\tПетренко Петро Петрович <- ПРАВИЛЬНО")
         
     elif signState == 2:
         try:
@@ -216,21 +245,15 @@ async def EntryMenu(message : str, chatId, context : CallbackContext, messageId)
                 
             else:
                 context.user_data["signState"] = -2  # User does not exist.
-                yes = KeyboardButton("Так")
-                no = KeyboardButton("Ні")
-                reply_markup = ReplyKeyboardMarkup([[yes, no]], resize_keyboard=True)
-                
                 await context.bot.send_message(chat_id = chatId, text = "Вибачте такого учня в цьому класі немає.\n" + 
                                                 "Можливо ви ввели неправильні дані. Спробувати ще раз?",
-                                                reply_markup = reply_markup)
+                                                reply_markup = replyMarkup)
             
         except:
             print("he wrote incorect args")
             await context.bot.send_message(chat_id = chatId, 
-                    text = "Виввели неправильні дані.\n" +
-                    "Переконайтеся що попереднє повідомлення було коректне.\n" + 
-                    "Наприклад:\n\t9 клас ← НЕПРАВИЛЬНО\n"+
-                    "\t9 ← ПРАВИЛЬНО")
+                    text = "Виввели неправильні дані.\nПереконайтеся що попереднє повідомлення було коректне.\n" + 
+                    "Наприклад:\n\t9 клас ← НЕПРАВИЛЬНО\n\t9 ← ПРАВИЛЬНО")
     
     elif signState == 3:
         import random
@@ -240,6 +263,7 @@ async def EntryMenu(message : str, chatId, context : CallbackContext, messageId)
                                                                 "\nЯкщо повідомлення довго не зявляється перевірте СПАМ.")
         
         try:
+            # TODO: check email existing.
             Email().Send(message, "РЕЄСТРАЦІЙНИЙ ЛИСТ", "Вітаю ви реєструєтеся в чат-боті Вівнянського ЗНЗ І-ІІ ст. - ДНЗ.\n" + 
                         "Це код який ви повинні ввести в боті: " + str(code) + "\nНікому стононньому не повідомляйте його.\n" +
                         "Бажаємо гарного дня")
@@ -253,9 +277,7 @@ async def EntryMenu(message : str, chatId, context : CallbackContext, messageId)
             await context.bot.send_message(chat_id = chatId, text = "Вибачте але сталася якась помилка, перевірте правильність вказання пошти")
     
     elif signState == 4:
-        rightCode = context.user_data.get("signInfo").get("code")
-        
-        if rightCode:
+        if rightCode := context.user_data.get("signInfo").get("code"):
             if rightCode in message:
                 await context.bot.send_message(chat_id = chatId, text = "Ви успішно підтвердили свою пошту.\nДалі введіть логін, який будете" +
                                             " використовувати під час входу.\n<b>Радимо використати свою пошту.</b>", parse_mode = "HTML") 
@@ -274,7 +296,9 @@ async def EntryMenu(message : str, chatId, context : CallbackContext, messageId)
         else:
             context.user_data["signInfo"]["login"] = message
             await context.bot.send_message(chat_id = chatId, text = "Логін успішно додано.")
+            
             context.user_data["signState"] = 6  # User is going to send his password.
+            
             await context.bot.send_message(chat_id = chatId,
                 text = "Тепер потрібно ввести пароль, який будете використовувати при вході.<b>(За 5 секунд це повідомлення з паролем видалиться, з міркувань конфіденційності)</b>",
                 parse_mode = "HTML")
@@ -283,7 +307,7 @@ async def EntryMenu(message : str, chatId, context : CallbackContext, messageId)
         context.user_data["signInfo"]["password"] = message
         
         await asyncio.sleep(5)
-        await context.bot.delete_message(chat_id = chatId, message_id = messageId)
+        await context.bot.delete_message(chat_id = chatId, message_id = messageId)  # Delete the password, that user provided.
         await context.bot.send_message(chat_id = chatId, text = "Пароль успішно додано.")
         
         user = {
@@ -311,31 +335,31 @@ async def EntryMenu(message : str, chatId, context : CallbackContext, messageId)
         # TODO: add functions calling. 
 
     elif signState == -1:
-        if "Так" in message:
-            await context.bot.send_message(chat_id = chatId, 
-                                            text = "Надішліть своє Прізвище Ім'я По-батькові знову.", 
-                                            reply_markup = ReplyKeyboardRemove())
-            context.user_data["signState"] = 1
-        elif "Ні" in message:
-            await context.bot.send_message(chat_id = chatId, 
-                                            text = "Тоді вертаємося до початкового меню", 
-                                            reply_markup = ReplyKeyboardRemove())
-            # TODO: To first menu.
-        else:
-            await context.bot.send_message(chat_id = chatId, text = "Введено некоректне повідомлення")
+        await YesNoEntryHandler(update, context, "signState", 1, "Надішліть своє Прізвище Ім'я По-батькові.", "Тоді вертаємося до початкового меню")
+    
     elif signState == -2:
-        if "Так" in message:
+        await YesNoEntryHandler(update, context, "signState", 2, "Надішліть клас в якому навчаєтесь.", "Тоді вертаємося до початкового меню")
+
+
+async def YesNoEntryHandler(update : Update, context : CallbackContext, stateName : str, statePos : int, yesText : str, noText : str):
+    message : str = update.message.text
+    chatId  : int = update.effective_chat.id
+    
+    if "Так" in message:
             await context.bot.send_message(chat_id = chatId, 
-                                            text = "Надішліть клас в якому навчаєтесь.", 
+                                            text = yesText, 
                                             reply_markup = ReplyKeyboardRemove())
-            context.user_data["signState"] = 2
-        elif "Ні" in message:
+            context.user_data[stateName] = statePos
+            
+    elif "Ні" in message:
             await context.bot.send_message(chat_id = chatId, 
-                                            text = "Тоді вертаємося до початкового меню", 
+                                            text = noText, 
                                             reply_markup = ReplyKeyboardRemove())
-            # TODO: To first menu.
-        else:
+            EntryMenu(update, context)  # TODO: To first menu.
+    
+    else:
             await context.bot.send_message(chat_id = chatId, text = "Введено некоректне повідомлення")
+
 
 # {
 #     "lastName"  : splitedMsg[0], str
@@ -345,7 +369,6 @@ async def EntryMenu(message : str, chatId, context : CallbackContext, messageId)
 #     "login"     : "",
 #     "password"  : ""
 # }
-
 def StudentExist(user) -> bool:    
     with open (pathes.STUDENTS_JSON, "r", encoding = "utf8") as file:
         data = json.load(file)
@@ -359,21 +382,17 @@ def StudentExist(user) -> bool:
                     return True
             return False
 
+
 # {
 #     "login"   : "userLogin",
 #     "password": "userPassword"
 # }
-
-def UserExistInDB(userLoginData) -> bool:
+def UserExistInDB(userLoginData):
     if not userLoginData:
-        return False
+        return None
     
-    user = mongo.users.find_one({"logIn.login": userLoginData["login"], "logIn.password": userLoginData["password"]})
+    return mongo.users.find_one({"logIn.login": userLoginData["login"], "logIn.password": userLoginData["password"]})
 
-    if user:
-        return True
-    else:
-        return False
 
 def LoginExist(login) -> bool:
     if not login:
@@ -383,6 +402,16 @@ def LoginExist(login) -> bool:
     if result:
         return True
     return False
+
+
+def ChatIdIExistInDB(chatId):
+    if not chatId:
+        return None
+    
+    return mongo.users.find_one({"chatId" : chatId})
+
+
+
 
 
 async def StartCallMsgHandler(message : str, chatId, context : CallbackContext):
