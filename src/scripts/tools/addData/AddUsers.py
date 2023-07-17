@@ -22,9 +22,9 @@ def ProcessUser(lines):
 
     user = {
         "chatID": int(chat_id),
-        "fatherName": father_name,
-        "firstName": first_name,
         "lastName": last_name,
+        "firstName": first_name,
+        "fatherName": father_name,
         "phone": None,
         "email": email,
         "logIn": {
@@ -32,8 +32,11 @@ def ProcessUser(lines):
             "password": password,
         },
         "userType": {
-            "teacher": False,
-            "student": False
+            "developer": False,
+            "admin"    : False, 
+            "teacher"  : False,
+            "student"  : False
+            
         }
     }
 
@@ -55,9 +58,13 @@ def ProcessUser(lines):
         user["fatherName"] = father_name
         user["phone"] = None if phone == "0" else 0
         user["userType"]["student"] = {
-            "class": int (class_name)
+            "class": int(class_name)
         }
-
+    elif user_type == "admin":  
+        user["userType"]["admin"] = True
+        user["phone"] = GetPhoneNum(phone)
+    elif user_type == "developer":  
+        user["userType"]["developer"] = True
     return user
 
 def ReadUsersFromFile(file_path):

@@ -1,1 +1,3 @@
 src/sctipts/tools/config.py
+data/usersData/users.json
+data/readingData/users.txt 

@@ -12,11 +12,14 @@ class Email:
         self.senderPassword  = config.EMAIL_PASSWORD
         self.smtpServer      = "smtp.gmail.com"
         self.smtpPort        = 587
+        self.imapServer      = "imap.gmail.com"
+        self.imapPort        = 993
 
-    def Send(self, recipientEmail : str, title : str, body : str):
+    def Send(self, recipientEmail: str, title: str, body: str):
         smtpUsername = self.senderEmail
         smtpPassword = self.senderPassword
         
+        # Надсилаємо повідомлення
         server = smtplib.SMTP(self.smtpServer, self.smtpPort)
         server.starttls()
         server.login(smtpUsername, smtpPassword)
@@ -29,5 +32,5 @@ class Email:
         msg.attach(MIMEText(body, 'plain'))
 
         server.send_message(msg)
-
         server.quit()
+

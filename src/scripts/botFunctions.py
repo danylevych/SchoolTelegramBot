@@ -20,18 +20,31 @@ def isJsonEmpty(file_path):
     file_size = os.path.getsize(file_path)
     return file_size == 0
 
+
+
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["user"] = dict()
     
     if user := ChatIdIExistInDB(update.effective_chat.id):
-        context.user_data["user"]["id"] = user.get("chatId")
+        context.user_data["user"]["id"] = user.get("chatID")
         
-        if user.get("userType").get("teacher"):
+        userType = user.get("userType")
+        
+        if userType.get("developer") or userType.get("admin"):
+            context.user_data["user"]["type"] = userType.get("developer") if userType.get("developer") else userType.get("admin")
+            await AdminMenu(update, context)
+            
+
+        elif user.get("userType").get("teacher"):
             context.user_data["user"]["teachingClass"] = user.get("userType").get("teacher").get("class")
+            
+            if context.user_data.get("user").get("teachingClass") != 0:
+                await TeacherMenu1(update, context)
+            
         else:
             context.user_data["user"]["class"] = user.get("userType").get("student").get("class")
-        
-        # TODO: Open fiches.
+            # Open student menu.
     else:
         await update.message.reply_text(f"Привіт, {update.effective_user.full_name}.")
         await EntryMenu(update, context)
@@ -46,6 +59,30 @@ async def EntryMenu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     await asyncio.sleep(1)
     await context.bot.send_message(chat_id = update.effective_chat.id, text = "Оберіть дію", reply_markup = reply_markup)
+
+
+async def AdminMenu(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.user_data["isAdminMenu"] = True
+        
+    notification = KeyboardButton("Створити оголошення")
+    exit         = KeyboardButton("Вихід")
+    replyMarkup  = ReplyKeyboardMarkup([[notification], [exit]], resize_keyboard = True)
+    
+    await context.bot.send_message(chat_id = update.effective_chat.id, text = "Ви ввійшли як " + 
+                                    ("<b>РОЗРОБНИК</b>" if context.user_data.get("user").get("type") else "<b>АДМІНІСТРАТОР ШКОЛИ</b>"),
+                                    parse_mode = "HTML", reply_markup = replyMarkup)
+
+
+async def TeacherMenu1(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.user_data["isTecherMenu1"] = True
+    
+    notification   = KeyboardButton("Створити оголошення для учнів")
+    checkTimetable = KeyboardButton("Подивитися розклад")
+    checkClassList = KeyboardButton("Переглянути список учнів")
+    exit           = KeyboardButton("Вихід")
+    replyMarkup    = ReplyKeyboardMarkup([[notification], [checkTimetable], [checkClassList], [exit]], resize_keyboard = True)
+    
+    await context.bot.send_message(chat_id = update.effective_chat.id, text = "Ви ввійшли як <b>ВЧИТЕЛЬ</b>", parse_mode = "HTML", reply_markup = replyMarkup)
 
 
 async def CheckAirDangerous(context : CallbackContext):
@@ -105,12 +142,15 @@ async def send_lesson_start_notification(context : CallbackContext):
             print("the msg has been sent")
 
 
-
 async def MessagesHandler(update: Update, context: CallbackContext):
     if context.user_data.get("isEntryMenu"):
         await EntryMenuHandler(update, context)
         
+    elif context.user_data.get("isAdminMenu"):
+        await AdminMenuHandler(update, context)
     
+    elif context.user_data.get("isTecherMenu1"):
+        await TeacherMenuHandler1(update, context)
     # if context.user_data.get("user").get("firstStartCalling"):  # The first calling.
     #     await StartCallMsgHandler(update.message.text, update.effective_chat.id, context)
     #     del context.user_data["user"]["firstStartCalling"]  # The info about first calling has deleted.
@@ -120,7 +160,6 @@ async def MessagesHandler(update: Update, context: CallbackContext):
     
     # else:
     #     await context.bot.send_message(chat_id = update.effective_chat.id, text = "Нажаль такої команди не існує)")
-
 
 
 async def EntryMenuHandler(update : Update, context : CallbackContext):
@@ -137,7 +176,7 @@ async def EntryMenuHandler(update : Update, context : CallbackContext):
     replyMarkup = ReplyKeyboardMarkup([[yes, no]], resize_keyboard=True)
     
     
-    if "Вхід" in message:
+    if "Вхід" == message:
         await context.bot.send_message(chat_id = chatId, text = "Введіть ваш логін", reply_markup = ReplyKeyboardRemove())
         context.user_data["logInState"] = 1  # User is going to send the login. 
         
@@ -171,15 +210,28 @@ async def EntryMenuHandler(update : Update, context : CallbackContext):
         
         if user := UserExistInDB(userLoginData):
             context.user_data["user"]["id"] = chatId
+            mongo.users.update_one({ "logIn": userLoginData }, {"$set" : {"chatID" : chatId}})
             
-            if user.get("userType").get("teacher"):
+            userType = user.get("userType")
+            
+            if userType.get("developer") or userType.get("admin"):
+                context.user_data["user"]["type"] = userType.get("developer") if userType.get("developer") else userType.get("admin")
+                
+                del context.user_data["isEntryMenu"]
+                await asyncio.sleep(1)
+                await context.bot.send_message(chat_id = chatId, text = "Вхід успішний!")
+                
+                await AdminMenu(update, context)
+            
+            elif userType.get("teacher"):
                 context.user_data["user"]["teachingClass"] = user.get("userType").get("teacher").get("class")
+            # Open Teacher menu.
             else:
                 context.user_data["user"]["class"] = user.get("userType").get("student").get("class")
             
-            del context.user_data["isEntryMenu"]
-            await context.bot.send_message(chat_id = chatId, text = "Вхід успішний!")
-            await asyncio.sleep(2)
+            
+            
+            
             
             # TODO: open all fiches.
             
@@ -196,7 +248,7 @@ async def EntryMenuHandler(update : Update, context : CallbackContext):
         await YesNoEntryHandler(update, context, "signState", 2, "Надішліть свій пароль.", "Тоді вертаємося до початкового меню")
 
     
-    elif "Реєстрація" in message:
+    elif "Реєстрація" == message:
         await context.bot.send_message(chat_id = chatId, 
                     text = "Для початку введіть своє Прізвище Ім'я По-батькові", 
                     reply_markup = ReplyKeyboardRemove())
@@ -256,25 +308,30 @@ async def EntryMenuHandler(update : Update, context : CallbackContext):
                     "Наприклад:\n\t9 клас ← НЕПРАВИЛЬНО\n\t9 ← ПРАВИЛЬНО")
     
     elif signState == 3:
-        import random
-        code : int = random.randint(1000, 9999)
-        
-        await context.bot.send_message(chat_id = chatId, text = "Зараз на вашу пошту надійде повідомлення, яке буде складатися з чотирьох цифр" + 
-                                                                "\nЯкщо повідомлення довго не зявляється перевірте СПАМ.")
-        
-        try:
-            # TODO: check email existing.
-            Email().Send(message, "РЕЄСТРАЦІЙНИЙ ЛИСТ", "Вітаю ви реєструєтеся в чат-боті Вівнянського ЗНЗ І-ІІ ст. - ДНЗ.\n" + 
-                        "Це код який ви повинні ввести в боті: " + str(code) + "\nНікому стононньому не повідомляйте його.\n" +
-                        "Бажаємо гарного дня")
+        if (not IsValidEmail(message) and (text := "Неправильний формат пошти.")) or (EmailExistInDB(message) and (text := "На цю пошту вже є зареєстрований користувач.")):
+            context.user_data["signState"] = -3  # Something wrong with email.
+            await context.bot.send_message(chat_id = chatId, text = text + "\nСпробувати знову?", reply_markup = replyMarkup)
             
-            context.user_data["signInfo"]["email"] = message
-            context.user_data["signInfo"]["code"] = str(code)
-            
-            context.user_data["signState"] = 4  # User is going to send the code.
-        except:
-            print("something wrong in sending letter")
-            await context.bot.send_message(chat_id = chatId, text = "Вибачте але сталася якась помилка, перевірте правильність вказання пошти")
+        else:
+            import random
+            code : int = random.randint(1000, 9999)
+
+            await context.bot.send_message(chat_id = chatId, text = "Зараз на вашу пошту надійде повідомлення, яке буде складатися з чотирьох цифр" + 
+                                                                    "\nЯкщо повідомлення довго не зявляється перевірте СПАМ.")
+
+            try:
+                # TODO: check email existing.
+                Email().Send(message, "РЕЄСТРАЦІЙНИЙ ЛИСТ", "Вітаю ви реєструєтеся в чат-боті Вівнянського ЗНЗ І-ІІ ст. - ДНЗ.\n" + 
+                            "Це код який ви повинні ввести в боті: " + str(code) + "\nНікому стононньому не повідомляйте його.\n" +
+                            "Бажаємо гарного дня")
+
+                context.user_data["signInfo"]["email"] = message
+                context.user_data["signInfo"]["code"] = str(code)
+
+                context.user_data["signState"] = 4  # User is going to send the code.
+            except:
+                print("something wrong in sending letter")
+                await context.bot.send_message(chat_id = chatId, text = "Вибачте але сталася якась помилка, перевірте правильність вказання пошти")
     
     elif signState == 4:
         if rightCode := context.user_data.get("signInfo").get("code"):
@@ -300,39 +357,51 @@ async def EntryMenuHandler(update : Update, context : CallbackContext):
             context.user_data["signState"] = 6  # User is going to send his password.
             
             await context.bot.send_message(chat_id = chatId,
-                text = "Тепер потрібно ввести пароль, який будете використовувати при вході.<b>(За 5 секунд це повідомлення з паролем видалиться, з міркувань конфіденційності)</b>",
+                text = "Тепер потрібно ввести пароль, який будете використовувати при вході.\n" + 
+                "Пароль повинен містити:\n" +
+                "\t- мінімум 8 символів.\n" +
+                "\t- хоча б одну цифру та велику букву.\n" +  
+                "<b>(За 1 секунд повідомлення з паролем видалиться, з міркувань конфіденційності)</b>",
                 parse_mode = "HTML")
     
     elif signState == 6:
-        context.user_data["signInfo"]["password"] = message
-        
-        await asyncio.sleep(5)
+        await asyncio.sleep(1)
         await context.bot.delete_message(chat_id = chatId, message_id = messageId)  # Delete the password, that user provided.
-        await context.bot.send_message(chat_id = chatId, text = "Пароль успішно додано.")
         
-        user = {
-            "chatID"    : chatId,
-            "fatherName": context.user_data["signInfo"]["fatherName"],
-            "firstName" : context.user_data["signInfo"]["firstName"],
-            "lastName"  : context.user_data["signInfo"]["lastName"],
-            "phone"     : None,
-            "email"     : context.user_data["signInfo"]["email"],
-            "logIn"     : {
-                    "login"   : context.user_data["signInfo"]["login"],
-                    "password": context.user_data["signInfo"]["password"] 
-                },
-            "userType"  : {
-                    "teacher": False,
-                    "student": {
-                        "class": context.user_data["signInfo"]["class"]
+        if CheckPasssword(message):
+            context.user_data["signInfo"]["password"] = message
+
+            
+            await context.bot.send_message(chat_id = chatId, text = "Пароль успішно додано.")
+
+            user = {
+                "chatID"    : chatId,
+                "fatherName": context.user_data["signInfo"]["fatherName"],
+                "firstName" : context.user_data["signInfo"]["firstName"],
+                "lastName"  : context.user_data["signInfo"]["lastName"],
+                "phone"     : None,
+                "email"     : context.user_data["signInfo"]["email"],
+                "logIn"     : {
+                        "login"   : context.user_data["signInfo"]["login"],
+                        "password": context.user_data["signInfo"]["password"] 
+                    },
+                "userType"  : {
+                        "developer" : False,
+                        "admin"     : False,
+                        "teacher"   : False,
+                        "student"   : {
+                            "class": context.user_data["signInfo"]["class"]
+                        }
                     }
                 }
-            }
+
+            mongo.users.insert_one(user)
+            del context.user_data["signState"]
+            del context.user_data["isEntryMenu"]
+            # TODO: add functions calling. 
         
-        mongo.users.insert_one(user)
-        del context.user_data["signState"]
-        del context.user_data["isEntryMenu"]
-        # TODO: add functions calling. 
+        else:
+            await context.bot.send_message(chat_id = chatId, text = "Ви ввели пароль, який не відповідає вимогам. Будь ласка повторіть введення.")
 
     elif signState == -1:
         await YesNoEntryHandler(update, context, "signState", 1, "Надішліть своє Прізвище Ім'я По-батькові.", "Тоді вертаємося до початкового меню")
@@ -340,26 +409,195 @@ async def EntryMenuHandler(update : Update, context : CallbackContext):
     elif signState == -2:
         await YesNoEntryHandler(update, context, "signState", 2, "Надішліть клас в якому навчаєтесь.", "Тоді вертаємося до початкового меню")
 
+    elif signState == -3:
+        await YesNoEntryHandler(update, context, "signState", 3, "Надішліть нову пошту.", "Тоді вертаємося до початкового меню")
+
+
+async def AdminMenuHandler(update : Update, context : CallbackContext):
+    message         : str = update.message.text
+    chatId          : int = update.effective_chat.id
+    notifState      : int = context.user_data.get("notifState", 0)
+    backState       : int = context.user_data.get("backState", 0)
+    back                  = KeyboardButton("Назад")
+    
+    
+    async def CreateNitify():
+        context.user_data["backState"] = 1
+        await context.bot.send_message(chat_id = chatId, text = "Ви перейшли до меню створення оголошення.")
+        
+        forEveryone = KeyboardButton("Для усіх")
+        forTeachers = KeyboardButton("Для учителів")
+        forStydents = KeyboardButton("Для учнів")
+        
+        replyMarkup = ReplyKeyboardMarkup([[forEveryone], [forTeachers, forStydents], [back]], resize_keyboard = True)
+        await context.bot.send_message(chat_id = chatId, text = "Створити оголошення для...", reply_markup = replyMarkup)
+    
+    async def ForStudents():
+        forEveryone  = KeyboardButton("Для усіх учнів")
+        forSomeClass = KeyboardButton("Для певного класу")
+        
+        replyMarkup = ReplyKeyboardMarkup([[forEveryone, forSomeClass], [back]], resize_keyboard = True)
+        await context.bot.send_message(chat_id = chatId, text = "Створити оголошення для...", reply_markup = replyMarkup)
+        context.user_data["backState"] = 2
+        
+    async def GoBack(backSate, notifyState):
+        await context.bot.send_message(chat_id = chatId, text = "Введіть та відправте текст оголошення.",
+                                        reply_markup = ReplyKeyboardMarkup([[back]], resize_keyboard = True))
+        context.user_data["backState"] = backSate
+        context.user_data["notifState"] = notifyState
+        
+        
+    if "Створити оголошення" == message:  # TODO: try delete the key in this line.
+        await CreateNitify()
+    
+    elif "Вихід" == message:
+        mongo.users.update_one({"chatID" : chatId}, {"$set" : {"chatID" : None}})
+        del context.user_data["isAdminMenu"]
+        await start(update, context)
+        
+    elif "Для усіх" == message:
+        await GoBack(2, 1)
+        
+    elif "Для учителів" == message:
+        await GoBack(2, 2)
+    
+    elif "Для учнів" == message:
+        await ForStudents()
+    
+    elif "Для усіх учнів" == message:
+        await GoBack(3, 3)
+        
+    elif "Для певного класу" == message:
+        await context.bot.send_message(chat_id = chatId, text = "Введіть номер класу, для якого хочете створити оголошення.",
+                                        reply_markup = ReplyKeyboardMarkup([[back]], resize_keyboard = True))
+        context.user_data["backState"] = 3
+        context.user_data["notifState"] = 4
+        
+    elif "Назад" == message:
+        if backState == 1:    # Move to main admin menu.
+            notification = KeyboardButton("Створити оголошення")
+            replyMarkup = ReplyKeyboardMarkup([[notification]], resize_keyboard = True)
+
+            await context.bot.send_message(chat_id = update.effective_chat.id, text = "Оберіть дію.", reply_markup = replyMarkup)
+            
+        elif backState == 2:  # Move to creating menu.
+            await CreateNitify()
+            
+        elif backState == 3:  # Move notify for student
+            await ForStudents()
+            
+    elif notifState == 1:  # Enter msg for all users.
+        message = "<b>ОГОЛОШЕННЯ ВІД " + ("РОЗРОБНИКІВ" if context.user_data.get("user").get("type") else "АДМІНІСТРАЦІЇ ШКОЛИ") + "</b>\n" + message 
+        
+        firler = {
+            "userType.developer": False,
+            "userType.admin"    : False
+        }
+        await SentToAllWhoNot(firler, message, context)
+        await context.bot.send_message(chat_id = chatId, text = "Оголошення надіслане.")
+    
+    elif notifState == 2:  # Enter msg to teachers.
+        message = "<b>ОГОЛОШЕННЯ ВІД " + ("РОЗРОБНИКІВ" if context.user_data.get("user").get("type") else "АДМІНІСТРАЦІЇ ШКОЛИ") + "</b>\n" + message 
+        
+        firler = {
+            "userType.developer": False,
+            "userType.admin"    : False,
+            "userType.student"  : False,
+        }
+        await SentToAllWhoNot(firler, message, context)
+        await context.bot.send_message(chat_id = chatId, text = "Оголошення надіслане.")
+        
+    elif notifState == 3:  # Enter msg to all students.
+        message = "<b>ОГОЛОШЕННЯ ВІД " + ("РОЗРОБНИКІВ" if context.user_data.get("user").get("type") else "АДМІНІСТРАЦІЇ ШКОЛИ") + "</b>\n" + message
+        
+        firler = {
+            "userType.developer": False,
+            "userType.admin"    : False,
+            "userType.teacher"  : False,
+        }
+        await SentToAllWhoNot(firler, message, context)
+        await context.bot.send_message(chat_id = chatId, text = "Оголошення надіслане.")
+        
+    elif notifState == 4:  # Enter msg to some students.
+        if context.user_data.get("isSendingNotify"):
+            message = "<b>ОГОЛОШЕННЯ ВІД " + ("РОЗРОБНИКІВ" if context.user_data.get("user").get("type") else "АДМІНІСТРАЦІЇ ШКОЛИ") + "</b>\n" + message
+
+            firler = {
+                "userType.developer"    : False,
+                "userType.admin"        : False,
+                "userType.teacher"      : False,
+                "userType.student.class": context.user_data.get("whichClass"),
+            }
+            
+            del context.user_data["whichClass"]
+            del context.user_data["isSendingNotify"]
+            
+            await SentToAllWhoNot(firler, message, context)
+            await context.bot.send_message(chat_id = chatId, text = "Оголошення надіслане.")
+
+        else:
+            try:
+                context.user_data["whichClass"] = int(message)  # <- maybe error
+                await context.bot.send_message(chat_id = chatId, text = "Введіть та відправте текст оголошення.")
+                context.user_data["isSendingNotify"] = True
+            
+            except:
+                await context.bot.send_message(chat_id = chatId, text = "Вибачте, але ви ввели неправильний формат класу." +
+                                                "\nПриклад:\n" + 
+                                                "Неправильно - 5 клас\n"
+                                                "Правильно - 5\nСпробуйте ще раз.")
+
+
+async def TeacherMenuHandler1(update : Update, context : CallbackContext):
+    message       : str = update.message.text
+    chatId        : int = update.effective_chat.id
+    
+    teachingClass : int = context.user_data.get("user").get("teachingClass")
+    back                = KeyboardButton("Назад")
+    
+    
+    if "Створити оголошення для учнів" == message:
+        forOwnClass   = KeyboardButton("Для власного класу")
+        forOtherClass = KeyboardButton("Для учнів іншого класу")
+
+        replyMarkup    = ReplyKeyboardMarkup([[forOwnClass, forOtherClass], [back]], resize_keyboard = True)
+        await context.bot.send_message(chat_id = chatId, text = "Оберіть дію.", reply_markup = replyMarkup)
+    
+    elif "Подивитися розклад" == message:
+        pass
+    
+    elif "Переглянути список учнів" == message:
+        forOwnClass   = KeyboardButton("Список власного класу")
+        forOtherClass = KeyboardButton("Список учнів іншого класу")
+
+        replyMarkup    = ReplyKeyboardMarkup([[forOwnClass], [forOtherClass], [back]], resize_keyboard = True)
+        await context.bot.send_message(chat_id = chatId, text = "Оберіть дію.", reply_markup = replyMarkup)
+    
+    elif "Вихід" == message:
+        mongo.users.update_one({"chatID" : chatId}, {"$set" : {"chatID" : None}})
+        del context.user_data["isTecherMenu1"]
+        await start(update, context)
+        
+
 
 async def YesNoEntryHandler(update : Update, context : CallbackContext, stateName : str, statePos : int, yesText : str, noText : str):
     message : str = update.message.text
     chatId  : int = update.effective_chat.id
     
     if "Так" in message:
-            await context.bot.send_message(chat_id = chatId, 
-                                            text = yesText, 
-                                            reply_markup = ReplyKeyboardRemove())
-            context.user_data[stateName] = statePos
+        await context.bot.send_message(chat_id = chatId, 
+                                        text = yesText, 
+                                        reply_markup = ReplyKeyboardRemove())
+        context.user_data[stateName] = statePos
             
     elif "Ні" in message:
-            await context.bot.send_message(chat_id = chatId, 
-                                            text = noText, 
-                                            reply_markup = ReplyKeyboardRemove())
-            EntryMenu(update, context)  # TODO: To first menu.
+        await context.bot.send_message(chat_id = chatId, 
+                                        text = noText, 
+                                        reply_markup = ReplyKeyboardRemove())
+        EntryMenu(update, context)  # TODO: To first menu.
     
     else:
-            await context.bot.send_message(chat_id = chatId, text = "Введено некоректне повідомлення")
-
+        await context.bot.send_message(chat_id = chatId, text = "Введено некоректне повідомлення")
 
 # {
 #     "lastName"  : splitedMsg[0], str
@@ -404,11 +642,55 @@ def LoginExist(login) -> bool:
     return False
 
 
+
 def ChatIdIExistInDB(chatId):
     if not chatId:
         return None
     
-    return mongo.users.find_one({"chatId" : chatId})
+    return mongo.users.find_one({"chatID" : chatId})
+
+def CheckPasssword(password) :
+    if len(password) < 8:
+        return False
+    if not any(char.isdigit() for char in password):
+        return False
+    if not any(char.isupper() for char in password):
+        return False
+    return True
+
+
+def IsValidEmail(email) -> bool:
+    if not email:
+        return False
+    
+    import re
+    pattern = r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$"
+    return re.match(pattern, email) != None
+
+
+def EmailExistInDB(email) -> bool:
+    if not email:
+        return False
+    
+    return mongo.users.find_one({"email" : email}) != None
+
+
+async def SentToAllWhoNot(filter, message : str , context : CallbackContext):
+    users = mongo.users.find(filter)
+    for user in users:
+        if user.get("chatID"):
+            await context.bot.send_message(chat_id = user.get("chatID"), text = message, parse_mode = "HTML")
+    
+
+
+
+
+
+
+
+
+
+
 
 
 
