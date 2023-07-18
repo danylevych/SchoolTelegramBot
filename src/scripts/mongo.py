@@ -7,3 +7,4 @@ cluster = MongoClient(config.MONGO_TOKEN)
 db = cluster["telegram"]
 users = db["users"]
 notes = db["notes"]
+students = db["students"]
