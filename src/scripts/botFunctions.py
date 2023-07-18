@@ -1,18 +1,16 @@
-import sys
-sys.path.append("src/scripts/tools")
-import pathes
-import mongo
-from phrases import PhrasesGenerator
-
-
 import json
 import asyncio
 import requests
-from emailSender import Email
-from followLesson import FollowLesson
-from timetable import TimetableForTeacher
-from telegram import Update, ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemove
+import scripts.tools.mongo as mongo
+import scripts.tools.pathes as pathes
+
+from scripts.classes.emailSender import Email
+from scripts.tools.phrases import PhrasesGenerator
+from scripts.classes.followLesson import FollowLesson
+from scripts.classes.timetable import TimetableForTeacher
 from telegram.ext import CallbackContext, ContextTypes
+from telegram import Update, ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemove
+
 import os
 
 
@@ -84,7 +82,7 @@ async def TeacherMenu1(update: Update, context: ContextTypes.DEFAULT_TYPE):
     createHomeWork = KeyboardButton("Створити домашнє завдання")
     checkClassList = KeyboardButton("Переглянути список учнів")
     exit           = KeyboardButton("Вихід")
-    replyMarkup    = ReplyKeyboardMarkup([[notification], [checkTimetable], [checkClassList], [createHomeWork] [exit]], resize_keyboard = True)
+    replyMarkup    = ReplyKeyboardMarkup([[notification], [checkTimetable], [checkClassList], [createHomeWork], [exit]], resize_keyboard = True)
     
     await context.bot.send_message(chat_id = update.effective_chat.id, text = "Ви ввійшли як <b>ВЧИТЕЛЬ</b>", parse_mode = "HTML", reply_markup = replyMarkup)
 
@@ -624,17 +622,22 @@ async def TeacherMenuHandler1(update : Update, context : CallbackContext):
     if "Створити оголошення для учнів" == message:
         await CreateNotifyMeny()
     
-    elif "Для власного класу" == message or (isEnterOwnNotify := context.user_data.get("isEnterOwnNotify")):
+    elif "Для власного класу" == message or context.user_data.get("isEnterOwnNotify"):
+        isEnterOwnNotify = context.user_data.get("isEnterOwnNotify", False)
+        
         if not isEnterOwnNotify:
-            await context.bot.send_message(chat_id = chatId, text = "Введіть текст оголошення.", reply_markup = ReplyKeyboardMarkup([[back]]))
+            await context.bot.send_message(chat_id = chatId, text = "Введіть текст оголошення.", reply_markup = ReplyKeyboardMarkup([[back]], resize_keyboard = True))
             context.user_data["backState"] = 2
         else:
             await SendNotify(teachingClass)
             del context.user_data["isEnterOwnNotify"]
             
-    elif "Для учнів іншого класу" == message or (isEnterClass := context.user_data.get("isEnterClass")) or (isEnterNotify := context.user_data.get("isEnterNotify")):
+    elif "Для учнів іншого класу" == message or context.user_data.get("isEnterClass") or context.user_data.get("isEnterNotify"):
+        isEnterClass = context.user_data.get("isEnterClass", False)
+        isEnterNotify = context.user_data.get("isEnterNotify", False)
+        
         if not isEnterNotify and not isEnterClass:
-            await context.bot.send_message(chat_id = chatId, text = "Оберіть клас.", reply_markup = ReplyKeyboardMarkup([GetClassButtons(), [back]]))
+            await context.bot.send_message(chat_id = chatId, text = "Оберіть клас.", reply_markup = ReplyKeyboardMarkup([GetClassButtons(), [back]], resize_keyboard = True))
             context.user_data["backState"] = 2
         elif isEnterClass:
             await context.bot.send_message(chat_id = chatId, text = "Введіть текст оголошення.")
@@ -645,7 +648,7 @@ async def TeacherMenuHandler1(update : Update, context : CallbackContext):
     
     elif "Подивитися розклад" == message:
         context.user_data["backState"] = 1
-        await context.bot.send_message(chat_id = chatId, text = "Ось ваш розклад на сьогоднішній день", reply_markup = ReplyKeyboardMarkup([[back]]))
+        await context.bot.send_message(chat_id = chatId, text = "Ось ваш розклад на сьогоднішній день", reply_markup = ReplyKeyboardMarkup([[back]], resize_keyboard = True))
         await context.bot.send_message(chat_id = chatId, text = TimetableForTeacher(context.user_data.get("user").get("fullName").get("lastName"),
                                                                                     context.user_data.get("user").get("fullName").get("firstName"),
                                                                                     context.user_data.get("user").get("fullName").get("fatherName")).GetTimetable()[1].AsString())
@@ -684,7 +687,7 @@ async def TeacherMenuHandler1(update : Update, context : CallbackContext):
             createHomeWork = KeyboardButton("Створити домашнє завдання")
             checkClassList = KeyboardButton("Переглянути список учнів")
             exit           = KeyboardButton("Вихід")
-            replyMarkup    = ReplyKeyboardMarkup([[notification], [checkTimetable], [checkClassList], [createHomeWork] [exit]], resize_keyboard = True)
+            replyMarkup    = ReplyKeyboardMarkup([[notification], [checkTimetable], [checkClassList], [createHomeWork], [exit]], resize_keyboard = True)
 
             await context.bot.send_message(chat_id = update.effective_chat.id, text = "Оберіть дію.", reply_markup = replyMarkup)
 

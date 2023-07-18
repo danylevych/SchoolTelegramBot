@@ -1,10 +1,8 @@
-import sys
 import pytz
 import json
 import asyncio
 from datetime import time, datetime
-sys.path.append("src/scripts/tools/")
-import pathes
+import scripts.tools.pathes as pathes
 
 
 # This class privide access to cutrently timetable for some school class.

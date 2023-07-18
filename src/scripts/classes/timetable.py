@@ -1,10 +1,7 @@
 import json
 import pytz
 from datetime import time, datetime
-
-import sys
-sys.path.append("src/scripts/tools")
-import pathes
+import scripts.tools.pathes as pathes
 
 
 class TimetableForTeacher:

@@ -1,6 +1,4 @@
-import sys
-sys.path.append("src/scripts/tools")
-import config
+import scripts.tools.config as config
 from pymongo import MongoClient
 
 cluster = MongoClient(config.MONGO_TOKEN)

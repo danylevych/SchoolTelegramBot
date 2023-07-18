@@ -1,7 +1,5 @@
-import sys
-sys.path.append("src/scripts/tools")
-import config
-import botFunctions
+import scripts.tools.config as config
+import scripts.botFunctions as botFunctions
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, CallbackQueryHandler, filters
 
 def main():
