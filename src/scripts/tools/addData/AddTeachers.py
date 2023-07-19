@@ -65,8 +65,7 @@ with open(pathes.TEACHERS_TXT, "r", encoding = "utf8") as file:
             "fatherName"  : name[2],
             "classTeacher": None if teachingClass == 0 else teachingClass,
             "subjects"    : listOfSubject,
-            "phoneNumber" : GetPhoneNum(line[ : adminPart]),
-            "admin"       : None if int(line[adminPart + 1]) == 0 else int(line[adminPart + 1])
+            "phoneNumber" : GetPhoneNum(line[ : adminPart])
         }
         
         data.append(teacher)

@@ -20,7 +20,9 @@ class TimetableForTeacher:
         currentDay = datetime.now(pytz.timezone('Europe/Kiev')).strftime('%A').lower()
         
         self.returnedData : dict = dict()
-        
+        if currentDay not in ("monday", "tuesday", "wednesday", "thursday", "friday"):
+            self.returnedData = None
+            return (self.returnedData, self)
         for (name, classArr) in self.userInfo.get("subjects").items():
             with open(pathes.TIMETABLE_JSON, "r", encoding = "utf8") as file:
                 timetableInfo = json.load(file)
@@ -45,6 +47,8 @@ class TimetableForTeacher:
     
     
     def AsString(self):
+        if not self.returnedData:
+            return "Сьогодні вихідний."
         string = str()
         
         for lessonNum in sorted(self.returnedData.keys()):

@@ -21,8 +21,7 @@
                 "1"
             ]
         },
-        "phoneNumber": "+380 (68) 385 17 91",
-        "admin": null
+        "phoneNumber": "+380 (68) 385 17 91"
     },
     {
         "lastName": "Карпин",
@@ -46,11 +45,10 @@
                 "2"
             ]
         },
-        "phoneNumber": "+380 (96) 746 56 50",
-        "admin": null
+        "phoneNumber": "+380 (96) 746 56 50"
     },
     {
-        "lastName": "Жемевна",
+        "lastName": "Жемевка",
         "firstName": "Іванна",
         "fatherName": "Іванівна",
         "classTeacher": "3",
@@ -71,8 +69,7 @@
                 "3"
             ]
         },
-        "phoneNumber": "+380 (96) 943 91 74",
-        "admin": null
+        "phoneNumber": "+380 (96) 943 91 74"
     },
     {
         "lastName": "Верховинець",
@@ -96,8 +93,7 @@
                 "4"
             ]
         },
-        "phoneNumber": "+380 (98) 399 71 16",
-        "admin": null
+        "phoneNumber": "+380 (98) 399 71 16"
     },
     {
         "lastName": "Дімітрова",
@@ -120,8 +116,7 @@
                 "9"
             ]
         },
-        "phoneNumber": "+380 (96) 347 41 06",
-        "admin": null
+        "phoneNumber": "+380 (96) 347 41 06"
     },
     {
         "lastName": "Матвіїв",
@@ -143,8 +138,7 @@
                 "8"
             ]
         },
-        "phoneNumber": "+380 (67) 459 79 07",
-        "admin": null
+        "phoneNumber": "+380 (67) 459 79 07"
     },
     {
         "lastName": "Сидор",
@@ -181,8 +175,7 @@
                 "5"
             ]
         },
-        "phoneNumber": "+380 (98) 808 96 59",
-        "admin": null
+        "phoneNumber": "+380 (98) 808 96 59"
     },
     {
         "lastName": "Мисів",
@@ -201,8 +194,7 @@
                 "9"
             ]
         },
-        "phoneNumber": "+380 (97) 306 40 63",
-        "admin": null
+        "phoneNumber": "+380 (97) 306 40 63"
     },
     {
         "lastName": "Гнатик",
@@ -224,8 +216,7 @@
                 "9"
             ]
         },
-        "phoneNumber": null,
-        "admin": null
+        "phoneNumber": null
     },
     {
         "lastName": "Дмитришин",
@@ -244,8 +235,7 @@
                 "8"
             ]
         },
-        "phoneNumber": null,
-        "admin": null
+        "phoneNumber": null
     },
     {
         "lastName": "Зубінський",
@@ -276,8 +266,7 @@
                 "7"
             ]
         },
-        "phoneNumber": null,
-        "admin": null
+        "phoneNumber": null
     },
     {
         "lastName": "Матійців",
@@ -297,8 +286,7 @@
                 "9"
             ]
         },
-        "phoneNumber": null,
-        "admin": null
+        "phoneNumber": null
     },
     {
         "lastName": "Томашевська",
@@ -315,8 +303,7 @@
                 "9"
             ]
         },
-        "phoneNumber": null,
-        "admin": null
+        "phoneNumber": null
     },
     {
         "lastName": "Андрейків",
@@ -332,8 +319,7 @@
                 "9"
             ]
         },
-        "phoneNumber": null,
-        "admin": null
+        "phoneNumber": null
     },
     {
         "lastName": "Гловач",
@@ -355,8 +341,7 @@
                 "9"
             ]
         },
-        "phoneNumber": null,
-        "admin": null
+        "phoneNumber": null
     },
     {
         "lastName": "Васильців",
@@ -371,7 +356,6 @@
                 "9"
             ]
         },
-        "phoneNumber": "+380 (97) 672 05 25",
-        "admin": 1
+        "phoneNumber": "+380 (97) 672 05 25"
     }
 ]

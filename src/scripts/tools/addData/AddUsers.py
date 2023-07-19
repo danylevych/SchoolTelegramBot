@@ -20,8 +20,11 @@ def GetPhoneNum(phone):
 def ProcessUser(lines):
     chat_id, last_name, first_name, father_name, phone, email, login, password, user_type, class_name = map(str.strip, lines[:10])
 
+    # Handle chatID when it's 0
+    chat_id = None if int(chat_id) == 0 else int(chat_id)
+
     user = {
-        "chatID": int(chat_id),
+        "chatID": chat_id,
         "lastName": last_name,
         "firstName": first_name,
         "fatherName": father_name,
@@ -43,23 +46,11 @@ def ProcessUser(lines):
     if user_type == "teacher":
         user["userType"]["teacher"] = True
         user["userType"]["student"] = False
-        user["lastName"] = last_name
-        user["firstName"] = first_name
-        user["fatherName"] = father_name
         user["phone"] = GetPhoneNum(phone)
-        user["userType"]["teacher"] = {
-        "classTeacher" : None if int(class_name) == "0" else int(class_name)
-        }
     elif user_type == "student":
         user["userType"]["teacher"] = False
         user["userType"]["student"] = True
-        user["lastName"] = last_name
-        user["firstName"] = first_name
-        user["fatherName"] = father_name
         user["phone"] = None if phone == "0" else 0
-        user["userType"]["student"] = {
-            "class": int(class_name)
-        }
     elif user_type == "admin":  
         user["userType"]["admin"] = True
         user["phone"] = GetPhoneNum(phone)
