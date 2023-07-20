@@ -10,6 +10,4 @@ class TeacherSubjects:
         })
     
     def GetSubjects(self):
-        if not self.teacher:
-            return None
-        return self.teacher.get("subjects")
+        return self.teacher.get("subjects") if self.teacher else None

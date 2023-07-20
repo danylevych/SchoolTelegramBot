@@ -11,10 +11,10 @@ class FollowLesson:
         self.wichClass = str(wichClass)
         self.timetableLessons = dict()
         self.currentDay = datetime.now(pytz.timezone('Europe/Kiev')).strftime('%A').lower()
-        
+
         with open(pathes.TIMETABLE_LESSONS_JSON, "r") as file:
             import json
-            tempData = json.load(file)["class" + self.wichClass]
+            tempData = json.load(file)[f"class{self.wichClass}"]
             for (numLesson, period) in tempData.items():
                 self.timetableLessons[numLesson] = {
                     "startTime": time(period["startTime"]["hour"], period["startTime"]["minute"]),
@@ -27,7 +27,7 @@ class FollowLesson:
         if self.currentDay in ("monday", "tuesday", "wednesday", "thursday", "friday"):
             
             with open(pathes.TIMETABLE_JSON, "r", encoding="utf8") as file:
-                dayTimeTable = json.load(file)["class" + self.wichClass][self.currentDay]
+                dayTimeTable = json.load(file)[f"class{self.wichClass}"][self.currentDay]
                 lastLesson = dayTimeTable.items()
                 for item in dayTimeTable:
                     if dayTimeTable[item] is not None:
@@ -66,7 +66,7 @@ class FollowLesson:
             for (numLesson, period) in self.timetableLessons.items():
                 if period["startTime"] <= currentTime <= period["endTime"]:
                     with open(pathes.TIMETABLE_JSON, "r", encoding="utf8") as file:
-                        name = json.load(file)["class" + self.wichClass][self.currentDay][numLesson]
+                        name = json.load(file)[f"class{self.wichClass}"][self.currentDay][numLesson]
 
                         return {
                             "requestTime"   : currentTime,
@@ -79,9 +79,7 @@ class FollowLesson:
                                 }
                             }
 
-            # If it's a break, find the next lesson
-            nextLesson = self.GetNextLesson(currentTime)
-            if nextLesson:
+            if nextLesson := self.GetNextLesson(currentTime):
                 return {
                         "requestTime"   : currentTime,
                         "isBreak"       : True,
@@ -107,7 +105,7 @@ class FollowLesson:
             if period["startTime"] > time:
                 nextStartTime = period["startTime"]
                 with open(pathes.TIMETABLE_JSON, "r", encoding = "utf8") as file:
-                    name = json.load(file)["class" + self.wichClass][self.currentDay][numLesson]
+                    name = json.load(file)[f"class{self.wichClass}"][self.currentDay][numLesson]
                 return (name, numLesson, nextStartTime)
     
     

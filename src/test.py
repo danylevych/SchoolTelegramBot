@@ -5,9 +5,6 @@ import re
 # if students:
 #     for student in students:
 #         print(student)
-students = mongo.students.find()
-
-print(students)
 # def CheckTelegramPassword(password):
 #     if len(password) < 8:
 #         return False
@@ -21,3 +18,9 @@ print(students)
 # telegram_password = "привіт1Р"
 # is_valid = CheckTelegramPassword(telegram_password)
 # print(is_valid) 
+
+data = {
+    "name" : "pidor"
+}
+
+del data["age"]

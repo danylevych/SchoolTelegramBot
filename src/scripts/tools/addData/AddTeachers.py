@@ -9,11 +9,11 @@ def GetPhoneNum(phone : str):
         return None
     phone = phone[1 : ]
     resultStr : str = "+380 ("
-    resultStr += phone[ : 2] + ") "
+    resultStr += f"{phone[:2]}) "
     phone = phone[2 : ]
-    resultStr += phone[ : 3] + " "
+    resultStr += f"{phone[:3]} "
     phone = phone[3 : ]
-    resultStr += phone[ : 2] + " "
+    resultStr += f"{phone[:2]} "
     phone = phone[2 : ]
     resultStr += phone[ : 2]
     return resultStr
