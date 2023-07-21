@@ -18,7 +18,7 @@ class TimetableForTeacher:
     
     def GetTimetable(self):
         currentDay = datetime.now(pytz.timezone('Europe/Kiev')).strftime('%A').lower()
-        
+
         self.returnedData : dict = dict()
         if currentDay not in ("monday", "tuesday", "wednesday", "thursday", "friday"):
             self.returnedData = None
@@ -27,39 +27,41 @@ class TimetableForTeacher:
             with open(pathes.TIMETABLE_JSON, "r", encoding = "utf8") as file:
                 timetableInfo = json.load(file)
                 for classItem in classArr:
-                    if timetableInfo.get("class" + classItem):
-                        currentTimetable = timetableInfo.get("class" + classItem).get(currentDay)
+                    if timetableInfo.get(f"class{classItem}"):
+                        currentTimetable = timetableInfo.get(f"class{classItem}").get(currentDay)
                         for (lessonNum, lessonName) in currentTimetable.items():
                             if name == lessonName:
                                 with open(pathes.TIMETABLE_LESSONS_JSON, "r", encoding = "utf8") as file:
-                                    lessonTime = json.load(file).get("class" + classItem).get(lessonNum)
+                                    lessonTime = json.load(file).get(f"class{classItem}").get(lessonNum)
                                     startTime  = lessonTime.get("startTime")
                                     endTime    = lessonTime.get("endTime")
-                                    
+
                                     self.returnedData[lessonNum] = {
                                         "class"     : classItem,
                                         "name"      : lessonName,
                                         "startTime" : time(startTime.get("hour"), startTime.get("minute")),
                                         "endTime"   : time(endTime.get("hour"), endTime.get("minute"))
                                     }
-        
+
         return (self.returnedData, self)
     
     
     def AsString(self):
         if not self.returnedData:
-            return "Сьогодні вихідний."
-        string = str()
+            return "Сьогодні заннять немає."
         
+        string = str()
+        currentTime = currentTime  = datetime.now(pytz.timezone('Europe/Kiev')).time()
+
         for lessonNum in sorted(self.returnedData.keys()):
             lessonInfo = self.returnedData[lessonNum]
             classNum = lessonInfo.get("class")
             lessonName = lessonInfo.get("name")
             startTime = lessonInfo.get("startTime")
             endTime = lessonInfo.get("endTime")
-    
-            string += f"Урок №{lessonNum} - {lessonName}, у {classNum}-ому класі.\n"
+
+            string += ("<b>" if startTime <= currentTime <= endTime else "") + f"Урок №{lessonNum} - {lessonName}, у {classNum}-ому класі.\n"
             string += f"\t- Початок: {startTime.strftime('%H:%M')}\n"
-            string += f"\t- Кінець:  {endTime.strftime('%H:%M')}\n\n"
-        
+            string += f"\t- Кінець:  {endTime.strftime('%H:%M')}" + ("</b>" if startTime <= currentTime <= endTime else "") + "\n\n"
+            
         return string

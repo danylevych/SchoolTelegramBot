@@ -51,7 +51,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await TeacherLeaderMenu(update, context)
             
             else:
-                pass
+                await TeacherMenu(update, context)
+            
         else:
             # context.user_data["user"]["class"] = user.get("userType").get("student").get("class")
             # Open student menu.
@@ -104,6 +105,19 @@ async def TeacherLeaderMenu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await context.bot.send_message(chat_id = update.effective_chat.id, text = "Ви ввійшли як <b>ВЧИТЕЛЬ</b>", parse_mode = "HTML", reply_markup = replyMarkup)
 
 
+async def TeacherMenu(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.user_data["isTecherMenu"] = True
+    
+    notification   = KeyboardButton("Створити оголошення для учнів")
+    checkTimetable = KeyboardButton("Подивитися сьогоднішній розклад")
+    createHomeWork = KeyboardButton("Створити домашнє завдання")
+    checkClassList = KeyboardButton("Переглянути список учнів")
+    exit           = KeyboardButton("Вихід")
+    replyMarkup    = ReplyKeyboardMarkup([[notification], [checkTimetable], [checkClassList], [createHomeWork], [exit]], resize_keyboard = True)
+    
+    await context.bot.send_message(chat_id = update.effective_chat.id, text = "Ви ввійшли як <b>ВЧИТЕЛЬ</b>", parse_mode = "HTML", reply_markup = replyMarkup)
+
+
 async def MessagesHandler(update: Update, context: CallbackContext):
     if context.user_data.get("isEntryMenu"):
         await EntryMenuHandler(update, context)
@@ -113,6 +127,9 @@ async def MessagesHandler(update: Update, context: CallbackContext):
     
     elif context.user_data.get("isTecherLeaderMenu"):
         await TeacherLeaderMenuHandler(update, context)
+
+    elif context.user_data.get("isTecherMenu"):
+        await TeacherMenuHandler(update, context)
     # if context.user_data.get("user").get("firstStartCalling"):  # The first calling.
     #     await StartCallMsgHandler(update.message.text, update.effective_chat.id, context)
     #     del context.user_data["user"]["firstStartCalling"]  # The info about first calling has deleted.
@@ -186,6 +203,10 @@ async def EntryMenuHandler(update : Update, context : CallbackContext):
         if user := UserExistInDB(userLoginData):
             if not user.get("chatID"):  # User try to entry for other computer. 
                 context.user_data["user"]["id"] = chatId
+                context.user_data["user"]["firstName"] = user.get("firstName")
+                context.user_data["user"]["lastName"] = user.get("lastName")
+                context.user_data["user"]["fatherName"] = user.get("fatherName")
+
                 mongo.users.update_one({ "logIn": userLoginData }, {"$set" : {"chatID" : chatId}})
 
                 userType = user.get("userType")
@@ -205,11 +226,12 @@ async def EntryMenuHandler(update : Update, context : CallbackContext):
                                                         "fatherName" : user.get("fatherName")})
                     
                     context.user_data["user"]["classTeacher"] = int(teacher.get("classTeacher"))
+
                     if context.user_data.get("user").get("classTeacher") != 0:
                         await TeacherLeaderMenu(update, context)
             
                     else:
-                        pass
+                        await TeacherMenu(update, context)
                 # Open Teacher menu.
                 else:
                     # context.user_data["user"]["class"] = user.get("userType").get("student").get("class")
@@ -583,7 +605,7 @@ async def TeacherLeaderMenuHandler(update : Update, context : CallbackContext):
     BACK_TO_CLASS_ENTER_SUBJECTS_MENU = 6
     BACK_TO_CLASS_ENTER_HOMEWORK_MENU = 7
     
-    ENTER_CLASS_NOTIFIED, ENTER_NOTIFY, SEND_NOTIFY    = range(1, 4)
+    ENTER_CLASS_NOTIFIED, ENTER_NOTIFY, SEND_NOTIFY = range(1, 4)
     ENTER_SUBJECT, ENTER_HOMEWORK_CLASS, ENTER_HOMEWORK, SAVE_HOMEWORK = range(1, 5)
     
     def GetClassButtons():
@@ -656,20 +678,20 @@ async def TeacherLeaderMenuHandler(update : Update, context : CallbackContext):
             del context.user_data["isNotifyOwnClass"]
     
     
-    async def NotifyOtherClassHandler():
-        otherNotifyState = context.user_data.get("otherNotifyState", ENTER_CLASS_NOTIFIED)
+    async def NotifyClassHandler():
+        notifyState = context.user_data.get("notifyState", ENTER_CLASS_NOTIFIED)
         
-        if otherNotifyState == ENTER_CLASS_NOTIFIED:
+        if notifyState == ENTER_CLASS_NOTIFIED:
             context.user_data["backState"] = BACK_TO_CREATING_NOTIFY_MENU
-            context.user_data["otherNotifyState"] = ENTER_NOTIFY
+            context.user_data["notifyState"] = ENTER_NOTIFY
             
             buttonsNotify = GetClassButtons()
             buttonsNotify.append([back])
             await context.bot.send_message(chat_id = chatId, text = "Оберіть клас.", reply_markup = ReplyKeyboardMarkup(buttonsNotify, resize_keyboard = True))
             
-        elif otherNotifyState == ENTER_NOTIFY:
+        elif notifyState == ENTER_NOTIFY:
             context.user_data["backState"] = BACK_TO_CLASS_ENTER_NOTIFY_MENU
-            context.user_data["otherNotifyState"] = SEND_NOTIFY
+            context.user_data["notifyState"] = SEND_NOTIFY
             
             try:
                 context.user_data["whichClass"] = int(message)
@@ -677,8 +699,8 @@ async def TeacherLeaderMenuHandler(update : Update, context : CallbackContext):
             except:
                 await context.bot.send_message(chat_id = chatId, text = "Ой, щось пішло не так. Можливо ви не обрали клас.", reply_markup = ReplyKeyboardMarkup([[back]], resize_keyboard = True))
         
-        elif otherNotifyState == SEND_NOTIFY:
-            del context.user_data["otherNotifyState"]
+        elif notifyState == SEND_NOTIFY:
+            del context.user_data["notifyState"]
             await SendNotify(context.user_data.get("whichClass"), message)
 
 
@@ -748,7 +770,7 @@ async def TeacherLeaderMenuHandler(update : Update, context : CallbackContext):
         await context.bot.send_message(chat_id = chatId, text = "Оберіть дію.", reply_markup = replyMarkup)
     
     
-    async def OtherClassListHandler():
+    async def ClassListHandler():
         isSelectClass = context.user_data.get("isSelectClass")
         
         if not isSelectClass:
@@ -768,8 +790,8 @@ async def TeacherLeaderMenuHandler(update : Update, context : CallbackContext):
     
     if "Назад" == message:
         if backState == BACK_TO_MAIN_MENU:
-            if context.user_data.get("otherNotifyState"):
-                del context.user_data["otherNotifyState"]
+            if context.user_data.get("notifyState"):
+                del context.user_data["notifyState"]
                 
             if context.user_data.get("isNotifyOwnClass"):
                 del context.user_data["isNotifyOwnClass"]
@@ -783,8 +805,8 @@ async def TeacherLeaderMenuHandler(update : Update, context : CallbackContext):
             await MainMenuHandler()
             
         elif backState == BACK_TO_CREATING_NOTIFY_MENU:
-            if context.user_data.get("otherNotifyState"):
-                del context.user_data["otherNotifyState"]
+            if context.user_data.get("notifyState"):
+                del context.user_data["notifyState"]
                 
             if context.user_data.get("isNotifyOwnClass"):
                 del context.user_data["isNotifyOwnClass"]
@@ -798,9 +820,9 @@ async def TeacherLeaderMenuHandler(update : Update, context : CallbackContext):
             await CreatingNotifyHandler()
             
         elif backState == BACK_TO_CLASS_ENTER_NOTIFY_MENU:
-            if context.user_data.get("otherNotifyState"):
-                del context.user_data["otherNotifyState"]
-            await NotifyOtherClassHandler()
+            if context.user_data.get("notifyState"):
+                del context.user_data["notifyState"]
+            await NotifyClassHandler()
             
         elif backState == BACK_TO_STUDENTS_LIST_MENU:
             if context.user_data.get("isSelectClass"):
@@ -808,7 +830,7 @@ async def TeacherLeaderMenuHandler(update : Update, context : CallbackContext):
             await CheckStudentListHandler()
             
         elif backState == BACK_TO_CLASS_ENTER_STUDENTS_MENU:
-            await OtherClassListHandler()
+            await ClassListHandler()
         
         elif backState == BACK_TO_CLASS_ENTER_SUBJECTS_MENU:
             context.user_data["homeworkState"] = ENTER_SUBJECT
@@ -825,15 +847,15 @@ async def TeacherLeaderMenuHandler(update : Update, context : CallbackContext):
     elif "Для власного класу" == message or context.user_data.get("isNotifyOwnClass"):
         await NotifyOwnClassHandler()
             
-    elif "Для учнів іншого класу" == message or context.user_data.get("otherNotifyState"):
-        await NotifyOtherClassHandler()
+    elif "Для учнів іншого класу" == message or context.user_data.get("notifyState"):
+        await NotifyClassHandler()
     
     elif "Подивитися сьогоднішній розклад" == message:
         context.user_data["backState"] = BACK_TO_MAIN_MENU
         await context.bot.send_message(chat_id = chatId, text = "Ось ваш розклад на сьогоднішній день", reply_markup = ReplyKeyboardMarkup([[back]], resize_keyboard = True))
         await context.bot.send_message(chat_id = chatId, text = TimetableForTeacher(context.user_data.get("user").get("lastName"),
                                                                                     context.user_data.get("user").get("firstName"),
-                                                                                    context.user_data.get("user").get("fatherName")).GetTimetable()[1].AsString())
+                                                                                    context.user_data.get("user").get("fatherName")).GetTimetable()[1].AsString(), parse_mode = "HTML")
 
     elif "Створити домашнє завдання" == message or context.user_data.get("homeworkState"):
         context.user_data["subjects"] = TeacherSubjects(context.user_data.get("user").get("lastName"), context.user_data.get("user").get("firstName"), context.user_data.get("user").get("fatherName")).GetSubjects()
@@ -847,11 +869,233 @@ async def TeacherLeaderMenuHandler(update : Update, context : CallbackContext):
         await ClassList(teachingClass, "Список вашого класу:")
 
     elif "Список учнів іншого класу" == message or context.user_data.get("isSelectClass"):        
-        await OtherClassListHandler()
+        await ClassListHandler()
             
     elif "Вихід" == message:
         mongo.users.update_one({"chatID" : chatId}, {"$set" : {"chatID" : None}})
         del context.user_data["isTecherLeaderMenu"]
+        await start(update, context)
+
+
+async def TeacherMenuHandler(update : Update, context : CallbackContext):
+    message       : str = update.message.text
+    chatId        : int = update.effective_chat.id
+    backState     : int = context.user_data.get("backState", 0)
+    back                = KeyboardButton("Назад")    
+    
+    
+    BACK_TO_MAIN_MENU = 1
+    BACK_TO_CLASS_ENTER_NOTIFY_MENU = 2
+    BACK_TO_CLASS_ENTER_STUDENTS_MENU = 3
+    BACK_TO_CLASS_ENTER_SUBJECTS_MENU = 4
+    BACK_TO_CLASS_ENTER_HOMEWORK_MENU = 5
+    
+    ENTER_CLASS_NOTIFIED, ENTER_NOTIFY, SEND_NOTIFY = range(1, 4)
+    ENTER_SUBJECT, ENTER_HOMEWORK_CLASS, ENTER_HOMEWORK, SAVE_HOMEWORK = range(1, 5)
+    
+    def GetClassButtons():
+        students = mongo.students.find()
+        
+        buttons : list = list()
+        twoButton : list = list()
+        for table in students:
+            for (classItem, studentsTable) in table.items():
+                if studentsTable and str(classItem) != "_id":
+                    twoButton.append(KeyboardButton(str(classItem)))
+                    if len(twoButton) == 2:
+                        buttons.append(twoButton)
+                        twoButton = list()
+        return buttons     
+    
+    async def ClassList(classNum, label):
+        students = mongo.students.find_one({}, {str(classNum) : 1}).get(str(classNum))
+        if students:
+            text : str = label + "\n"
+            i = 1
+            for student in students:
+                text += str(i) + ") {} {} {}\n".format(student.get("lastName").upper(), student.get("firstName"), student.get("fatherName"))
+                i += 1
+            await context.bot.send_message(chat_id = chatId, text = text, reply_markup = ReplyKeyboardMarkup([[back]], resize_keyboard = True))
+        else:
+            await context.bot.send_message(chat_id = chatId, text = "Вибачте, але учнів у цьому класі поки немає.", reply_markup = ReplyKeyboardMarkup([[back]], resize_keyboard = True))
+    
+    
+    async def SendNotify(classNum, message):
+        message = "<b>Оголошення від {} {} {}".format(context.user_data.get("user").get("lastName").upper(), 
+                                                            context.user_data.get("user").get("firstName"),
+                                                            context.user_data.get("user").get("fatherName")) + message + ".</b>\n"
+        students = mongo.students.find_one({}, {str(classNum) : 1}).get(str(classNum))
+            
+        filter = { "$or" : students }
+        
+        await SentToAllWho(filter, message, context)
+        await context.bot.send_message(chat_id = chatId, text = "Оголошення надіслане.")
+    
+    
+    async def MainMenuHandler():
+        notification   = KeyboardButton("Створити оголошення для учнів")
+        checkTimetable = KeyboardButton("Подивитися сьогоднішній розклад")
+        createHomeWork = KeyboardButton("Створити домашнє завдання")
+        checkClassList = KeyboardButton("Переглянути список учнів")
+        exit           = KeyboardButton("Вихід")
+        replyMarkup    = ReplyKeyboardMarkup([[notification], [checkTimetable], [checkClassList], [createHomeWork], [exit]], resize_keyboard = True)
+
+        await context.bot.send_message(chat_id = update.effective_chat.id, text = "Оберіть дію.", reply_markup = replyMarkup)
+    
+    
+    async def NotifyClassHandler():
+        notifyState = context.user_data.get("notifyState", ENTER_CLASS_NOTIFIED)
+        
+        if notifyState == ENTER_CLASS_NOTIFIED:
+            context.user_data["backState"] = BACK_TO_MAIN_MENU
+            context.user_data["notifyState"] = ENTER_NOTIFY
+            
+            buttonsNotify = GetClassButtons()
+            buttonsNotify.append([back])
+            await context.bot.send_message(chat_id = chatId, text = "Оберіть клас.", reply_markup = ReplyKeyboardMarkup(buttonsNotify, resize_keyboard = True))
+            
+        elif notifyState == ENTER_NOTIFY:
+            context.user_data["backState"] = BACK_TO_CLASS_ENTER_NOTIFY_MENU
+            context.user_data["notifyState"] = SEND_NOTIFY
+            
+            try:
+                context.user_data["whichClass"] = int(message)
+                await context.bot.send_message(chat_id = chatId, text = "Введіть текст оголошення.", reply_markup = ReplyKeyboardMarkup([[back]], resize_keyboard = True))
+            except:
+                await context.bot.send_message(chat_id = chatId, text = "Ой, щось пішло не так. Можливо ви не обрали клас.", reply_markup = ReplyKeyboardMarkup([[back]], resize_keyboard = True))
+        
+        elif notifyState == SEND_NOTIFY:
+            del context.user_data["notifyState"]
+            await SendNotify(context.user_data.get("whichClass"), message)
+
+
+    async def HomeworkHandler():
+        homeworkState = context.user_data.get("homeworkState", ENTER_SUBJECT)
+        
+        if homeworkState == ENTER_SUBJECT:
+            context.user_data["backState"] = BACK_TO_MAIN_MENU
+            context.user_data["homeworkState"] = ENTER_HOMEWORK_CLASS
+            
+            if context.user_data.get("lesson"):
+                del context.user_data["lesson"]
+            
+            subjectsButtons = [[item] for item in context.user_data.get("subjects").keys()]
+            subjectsButtons.append([back])
+            await context.bot.send_message(chat_id = chatId, text = "Оберіть предмет.", reply_markup = ReplyKeyboardMarkup(subjectsButtons, resize_keyboard = True))
+        
+        elif homeworkState == ENTER_HOMEWORK_CLASS:
+            context.user_data["backState"] = BACK_TO_CLASS_ENTER_SUBJECTS_MENU
+            context.user_data["homeworkState"] = ENTER_HOMEWORK
+            
+            if not context.user_data.get("lesson"):
+                context.user_data["lesson"] = message
+                
+            context.user_data["homework"] = {"lesson" : context.user_data.get("lesson")}
+            
+            classButtons = [[item] for item in context.user_data.get("subjects").get(context.user_data.get("lesson"))]  # Need to review if user send incorect values. 
+            classButtons.append([back])
+            await context.bot.send_message(chat_id = chatId, text = "Оберіть клас.", reply_markup = ReplyKeyboardMarkup(classButtons, resize_keyboard = True))
+            
+        elif homeworkState == ENTER_HOMEWORK:
+            context.user_data["backState"] = BACK_TO_CLASS_ENTER_HOMEWORK_MENU
+            context.user_data["homeworkState"] = SAVE_HOMEWORK
+            
+            try:
+                context.user_data["homework"]["class"] = int(message) # <- Maybe casting error
+                await context.bot.send_message(chat_id = chatId, text = "Введіть домашнє завдання.", reply_markup = ReplyKeyboardMarkup([[back]], resize_keyboard = True))
+            except:
+                await context.bot.send_message(chat_id = chatId, text = "Ой, щось пішло не так. Можливо ви не обрали клас.", reply_markup = ReplyKeyboardMarkup([[back]], resize_keyboard = True))
+                
+        elif homeworkState == SAVE_HOMEWORK:
+            del context.user_data["homeworkState"]
+            context.user_data["backState"] = BACK_TO_CLASS_ENTER_HOMEWORK_MENU
+
+            import pytz
+            import datetime
+            
+            homework = {
+                "_id" : context.user_data.get("homework"),
+                "task": message,
+                "creator": "{} {} {}".format(context.user_data.get("user").get("lastName").upper(), context.user_data.get("user").get("firstName"), context.user_data.get("user").get("fatherName")),
+                "when"   : datetime.datetime.now(pytz.timezone('Europe/Kiev')).strftime("%H:%M %d-%m-%Y")
+            }
+
+            mongo.homeworks.update_one({"_id" : context.user_data.get("homework")}, {"$set": homework}, upsert=True)
+            await context.bot.send_message(chat_id = chatId, text = "Домашнє завдання додано.", reply_markup = ReplyKeyboardMarkup([[back]], resize_keyboard = True))
+            del context.user_data["homework"]
+                
+    
+    async def ClassListHandler():
+        isSelectClass = context.user_data.get("isSelectClass")
+        
+        if not isSelectClass:
+            context.user_data["backState"] = BACK_TO_MAIN_MENU
+            context.user_data["isSelectClass"] = True
+            
+            buttons = GetClassButtons()
+            buttons.append([back])
+            
+            await context.bot.send_message(chat_id = chatId, text = "Оберіть клас.", reply_markup = ReplyKeyboardMarkup(buttons, resize_keyboard = True))
+        
+        else:
+            del context.user_data["isSelectClass"]
+            context.user_data["backState"] = BACK_TO_CLASS_ENTER_STUDENTS_MENU
+            await ClassList(message, "Список учнів " + message + "-го класу:")
+    
+    
+    if "Назад" == message:
+        if backState == BACK_TO_MAIN_MENU:
+            if context.user_data.get("notifyState"):
+                del context.user_data["notifyState"]
+                
+            if context.user_data.get("isNotifyOwnClass"):
+                del context.user_data["isNotifyOwnClass"]
+            
+            if context.user_data.get("homeworkState"):
+                del context.user_data["homeworkState"]
+            
+            if context.user_data.get("isSelectClass"):
+                del context.user_data["isSelectClass"]
+            
+            await MainMenuHandler()
+            
+        elif backState == BACK_TO_CLASS_ENTER_NOTIFY_MENU:
+            if context.user_data.get("notifyState"):
+                del context.user_data["notifyState"]
+            await NotifyClassHandler()
+            
+        elif backState == BACK_TO_CLASS_ENTER_STUDENTS_MENU:
+            await ClassListHandler()
+        
+        elif backState == BACK_TO_CLASS_ENTER_SUBJECTS_MENU:
+            context.user_data["homeworkState"] = ENTER_SUBJECT
+            await HomeworkHandler()
+            
+        elif backState == BACK_TO_CLASS_ENTER_HOMEWORK_MENU:
+            context.user_data["homeworkState"] = ENTER_HOMEWORK_CLASS
+            await HomeworkHandler()
+        
+    
+    elif "Створити оголошення для учнів" == message or context.user_data.get("notifyState"):
+        await NotifyClassHandler()
+    
+    elif "Подивитися сьогоднішній розклад" == message:
+        context.user_data["backState"] = BACK_TO_MAIN_MENU
+        await context.bot.send_message(chat_id = chatId, text = "Ось ваш розклад на сьогоднішній день", reply_markup = ReplyKeyboardMarkup([[back]], resize_keyboard = True))
+        await context.bot.send_message(chat_id = chatId, text = TimetableForTeacher(context.user_data.get("user").get("lastName"),
+                                                                                    context.user_data.get("user").get("firstName"),
+                                                                                    context.user_data.get("user").get("fatherName")).GetTimetable()[1].AsString(), parse_mode = "HTML")
+
+    elif "Створити домашнє завдання" == message or context.user_data.get("homeworkState"):
+        context.user_data["subjects"] = TeacherSubjects(context.user_data.get("user").get("lastName"), context.user_data.get("user").get("firstName"), context.user_data.get("user").get("fatherName")).GetSubjects()
+        await HomeworkHandler()
+    
+    elif "Переглянути список учнів" == message or context.user_data.get("isSelectClass"):
+        await ClassListHandler()
+            
+    elif "Вихід" == message:
+        mongo.users.update_one({"chatID" : chatId}, {"$set" : {"chatID" : None}})
+        del context.user_data["isTecherMenu"]
         await start(update, context)
 
 
