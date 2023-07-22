@@ -118,6 +118,22 @@ async def TeacherMenu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await context.bot.send_message(chat_id = update.effective_chat.id, text = "Ви ввійшли як <b>ВЧИТЕЛЬ</b>", parse_mode = "HTML", reply_markup = replyMarkup)
 
 
+async def StudentMenu(update: Update, context: ContextTypes.DEFAULT_TYPE)
+    context.user_data["isStudenMenu"] = True
+    
+    buttons = [
+        [KeyboardButton("Розклад")]
+        [KeyboardButton("Список класу")]
+        [KeyboardButton("Домашнє завдання на завтра")]
+        [KeyboardButton("Період канікул")]
+        [KeyboardButton("Нотатки")]
+        [KeyboardButton("Контакти")]
+        [KeyboardButton("Вихід")]]
+    replyMarkup    = ReplyKeyboardMarkup(buttons, resize_keyboard = True)
+    
+    await context.bot.send_message(chat_id = update.effective_chat.id, text = "Ви ввійшли як <b>УЧЕНЬ</b>", parse_mode = "HTML", reply_markup = replyMarkup)
+
+
 async def MessagesHandler(update: Update, context: CallbackContext):
     if context.user_data.get("isEntryMenu"):
         await EntryMenuHandler(update, context)
@@ -130,6 +146,9 @@ async def MessagesHandler(update: Update, context: CallbackContext):
 
     elif context.user_data.get("isTecherMenu"):
         await TeacherMenuHandler(update, context)
+    
+    elif context.user_data.get("isStudentMenu"):
+        await StudentMenuHandler(update, context)
     # if context.user_data.get("user").get("firstStartCalling"):  # The first calling.
     #     await StartCallMsgHandler(update.message.text, update.effective_chat.id, context)
     #     del context.user_data["user"]["firstStartCalling"]  # The info about first calling has deleted.
@@ -1097,6 +1116,33 @@ async def TeacherMenuHandler(update : Update, context : CallbackContext):
         mongo.users.update_one({"chatID" : chatId}, {"$set" : {"chatID" : None}})
         del context.user_data["isTecherMenu"]
         await start(update, context)
+
+
+async def StudenMenuHandler(update : Update, context : CallbackContext):
+    message       : str = update.message.text
+    chatId        : int = update.effective_chat.id
+    backState     : int = context.user_data.get("backState", 0)
+    back                = KeyboardButton("Назад")
+    
+    if "Назад" == message:
+        pass
+    elif "Розклад" == message:
+        pass
+    elif "Список класу" == message:
+        pass
+    elif "Домашнє завдання на завтра" == message:
+        pass
+    elif "Період канікул" == message:
+        pass
+    elif "Нотатки" == message:
+        pass
+    elif "Контакти" == message:
+        pass
+    elif "Вихід" == message:
+        mongo.users.update_one({"chatID" : chatId}, {"$set" : {"chatID" : None}})
+        del context.user_data["isStudenMenu"]
+        await start(update, context)
+
 
 
 async def YesNoEntryHandler(update : Update, context : CallbackContext, stateName : str, statePos : int, yesText : str, noText : str):
