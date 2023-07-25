@@ -34,20 +34,7 @@ class FollowLesson:
                         lastLesson = item
         return lastLesson
     
-    
     def GetCurrentLesson(self):
-        """
-        This method returns the set of data represented in the following format:
-        "requestTime"           - the time when the request was created.
-        "isBreak"               - Is it currently a break?
-        "isHoliday"             - Is today a holiday?
-        "infoLesson"            - the info about the current lesson.
-                "name"          - name of the lesson.
-                "startTime"     - starting time of the lesson.
-                "endTime"       - ending time of the lesson.
-        If the study day has ended, it returns None.
-        """
-
         currentTime = datetime.now(pytz.timezone('Europe/Kiev')).time()
 
         firstLesson = '1'
@@ -67,7 +54,12 @@ class FollowLesson:
                 if period["startTime"] <= currentTime <= period["endTime"]:
                     with open(pathes.TIMETABLE_JSON, "r", encoding="utf8") as file:
                         name = json.load(file)[f"class{self.wichClass}"][self.currentDay][numLesson]
-
+                        
+                        if "/" in name:  # changing timetable.
+                            current_week = datetime.now().isocalendar()[1]
+                            splitedName = name.split('/')
+                            name = splitedName[current_week % 2]
+                            
                         return {
                             "requestTime"   : currentTime,
                             "isBreak"       : False,

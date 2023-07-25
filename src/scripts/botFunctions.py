@@ -1,4 +1,6 @@
 import json
+import pytz
+import datetime
 import asyncio
 import requests
 import scripts.tools.mongo as mongo
@@ -54,24 +56,29 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await TeacherMenu(update, context)
             
         else:
-            # TODO: move this into separated funcktion.
-            studentInfo = {
-                "lastName": user.get("lastName"),
-                "firstName": user.get("firstName"),
-                "fatherName": user.get("fatherName")
-            }
-
-            students = mongo.students.find_one({})
-
-            for (classNum, studentsList) in students.items():
-                if classNum != "_id" and studentsList is not None and studentInfo in studentsList:
-                    context.user_data["user"]["class"] = int(classNum)
-                    break
-            await StudentMenu(update, context)
+            await StartUserMenu(update, context, user)
 
     else:
         await update.message.reply_text(f"Привіт, {update.effective_user.full_name}.")
         await EntryMenu(update, context)
+
+
+async def StartUserMenu(update: Update, context: ContextTypes.DEFAULT_TYPE, user):
+    context.user_data["user"]["_id"] = user.get("_id")
+    
+    studentInfo = {
+        "lastName": user.get("lastName"),
+        "firstName": user.get("firstName"),
+        "fatherName": user.get("fatherName")
+    }
+
+    students = mongo.students.find_one({})
+
+    for (classNum, studentsList) in students.items():
+        if classNum != "_id" and studentsList is not None and studentInfo in studentsList:
+            context.user_data["user"]["class"] = int(classNum)
+            break
+    await StudentMenu(update, context)
 
 
 async def EntryMenu(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -265,22 +272,7 @@ async def EntryMenuHandler(update : Update, context : CallbackContext):
                         await TeacherMenu(update, context)
                 # Open Teacher menu.
                 else:
-                    user_filter = {
-                        "lastName": user.get("lastName"),
-                        "firstName": user.get("firstName"),
-                        "fatherName": user.get("fatherName")
-                    }
-
-                    pipeline = [
-                        {"$project": {"classNum": {"$indexOfArray": ["$1", user_filter]}}},
-                        {"$match": {"classNum": {"$gte": 0}}}
-                    ]
-
-                    result = mongo.students.aggregate(pipeline)
-                    print(result)
-                    if result.alive:
-                        context.user_data["user"]["class"] = int(list(result)[0]["classNum"])
-                    await StudentMenu(update, context)
+                    await StartUserMenu(update, context, user)
             else:
                 await context.bot.send_message(chat_id = chatId, text = "Подвійний вхід заборонений!")
                 await start(update, context)
@@ -437,10 +429,15 @@ async def EntryMenuHandler(update : Update, context : CallbackContext):
                 }
 
             mongo.users.insert_one(user)
+            context.user_data["user"]["class"] = int(context.user_data.get("signInfo").get("class"))
+            context.user_data["user"]["_id"] = mongo.users.find_one(user).get("_id")
+            
+            del context.user_data["signInfo"]
             del context.user_data["signState"]
             del context.user_data["isEntryMenu"]
-            # TODO: add functions calling. 
-        
+            
+            await StudentMenu(update, context)
+            
         else:
             await context.bot.send_message(chat_id = chatId, text = "Ви ввели пароль, який не відповідає вимогам. Будь ласка повторіть введення.")      
     
@@ -790,9 +787,6 @@ async def TeacherLeaderMenuHandler(update : Update, context : CallbackContext):
         elif homeworkState == SAVE_HOMEWORK:
             del context.user_data["homeworkState"]
             context.user_data["backState"] = BACK_TO_CLASS_ENTER_HOMEWORK_MENU
-
-            import pytz
-            import datetime
             
             homework = {
                 "_id" : context.user_data.get("homework"),
@@ -1056,9 +1050,6 @@ async def TeacherMenuHandler(update : Update, context : CallbackContext):
         elif homeworkState == SAVE_HOMEWORK:
             del context.user_data["homeworkState"]
             context.user_data["backState"] = BACK_TO_CLASS_ENTER_HOMEWORK_MENU
-
-            import pytz
-            import datetime
             
             homework = {
                 "_id" : context.user_data.get("homework"),
@@ -1157,6 +1148,22 @@ async def StudentMenuHandler(update : Update, context : CallbackContext):
     BACK_TO_MAIN_MENU = 1
     BACK_TO_TIMETABLE_MENU = 2
     BACK_TO_CONTACT_MENU = 3
+    BACK_TO_NOTE_MENU = 4
+    BACK_TO_VIENOTE_MENU = 5
+    BACK_TO_CREATE_NOTE_ENTER_TITLE = 6
+    
+    ENTER_NOTE_TITLE, ENTER_NOTE_TEXT, SAVE_NOTE = range(1, 4)
+    
+    
+    def GetNoteButtons():
+        if notes := mongo.notes.find({ "_id.userID" : context.user_data.get("user").get("_id") }):
+            buttons : list = list()
+            for note in notes:
+                if title := note.get("_id").get("title"):
+                    buttons.append([title])
+            return None if len(buttons) == 0 else buttons
+        else:
+            return None
     
     
     async def MainMenu():
@@ -1244,6 +1251,99 @@ async def StudentMenuHandler(update : Update, context : CallbackContext):
         await context.bot.send_message(chat_id = chatId, text = string)
     
     
+    async def TomorrowHomework():
+        context.user_data["backState"] = BACK_TO_MAIN_MENU
+        
+        await context.bot.send_message(chat_id = chatId, text = "Домашнє завдання на завтра.", reply_markup = ReplyKeyboardMarkup([[back]], resize_keyboard = True))
+        await context.bot.send_message(chat_id = chatId, text = TimetableForStudent(classNum).PickTomorrowHomework())
+    
+    
+    async def NoteMenu():
+        context.user_data["backState"] = BACK_TO_MAIN_MENU
+        # TODO: add the chanche.
+        
+        buttons = [
+            [KeyboardButton("Переглянути")],
+            [KeyboardButton("Створити")],
+            [KeyboardButton("Очистити")],
+            [back]
+        ]
+        await context.bot.send_message(chat_id = chatId, text = "Ви перейшли в меню нотаток.\nОберіть дію.", reply_markup = ReplyKeyboardMarkup(buttons, resize_keyboard = True))
+    
+    
+    async def ViewNotesMenu():
+        if (buttons := GetNoteButtons()) and not context.user_data.get("isViewNote"):
+            context.user_data["backState"] = BACK_TO_NOTE_MENU
+            
+            context.user_data["isViewNote"] = True
+            buttons.append([back])
+            await context.bot.send_message(chat_id = chatId, text = "Виберіть нотатку яку хочете переглянути.", reply_markup = ReplyKeyboardMarkup(buttons, resize_keyboard = True))
+        
+        elif context.user_data.get("isViewNote"):
+            context.user_data["backState"] = BACK_TO_VIENOTE_MENU
+            del context.user_data["isViewNote"]
+            
+            if note := mongo.notes.find_one({"_id" : {"userID" : context.user_data.get("user").get("_id"), "title" : message}}):
+                await context.bot.send_message(chat_id = chatId, text = "Ось ваша нотатка.")
+                noteStr = "<b><pre>" + note.get("_id").get("title")  + "</pre></b>\n"
+                noteStr += note.get("text")
+                await context.bot.send_message(chat_id = chatId, text = noteStr, parse_mode = "HTML", reply_markup = ReplyKeyboardMarkup([[back]], resize_keyboard = True))
+            else:
+                await context.bot.send_message(chat_id = chatId, text = "Щось пішло не так.", reply_markup = ReplyKeyboardMarkup([[back]], resize_keyboard = True))
+            
+        else:
+            context.user_data["backState"] = BACK_TO_NOTE_MENU
+
+            await context.bot.send_message(chat_id = chatId, text = "Нажаль ви не маєте жодної нотатки.", reply_markup = ReplyKeyboardMarkup([[back]], resize_keyboard = True))
+    
+    
+    async def CreateNoteMenu():
+        # TODO: check if user have used his limit on notes
+        
+        createNoteState = context.user_data.get("createNoteState", ENTER_NOTE_TITLE)
+        
+        if createNoteState == ENTER_NOTE_TITLE:
+            context.user_data["backState"] = BACK_TO_NOTE_MENU
+            
+            context.user_data["createNoteState"] = ENTER_NOTE_TEXT
+            await context.bot.send_message(chat_id = chatId, text = "Введіть наазву нотатки.", reply_markup = ReplyKeyboardMarkup([[back]], resize_keyboard = True))
+        
+        elif createNoteState == ENTER_NOTE_TEXT:
+            # TODO: check if title exist for current user.
+            context.user_data["backState"] = BACK_TO_CREATE_NOTE_ENTER_TITLE
+            
+            if (len(message) > 50 and (text := f"Назва для нотатки не може бути більшою за 50 символів, а ваша містить {len(message)}.") or
+                mongo.notes.find_one({"_id" : {"userID" : context.user_data.get("user").get("_id"), "title" : message}}) and (text := "Ви вже створювали нотатку під цією назвою.")):
+                
+                context.user_data["createNoteState"] = ENTER_NOTE_TITLE
+                
+                await context.bot.send_message(chat_id = chatId, text = text, reply_markup = ReplyKeyboardMarkup([[back]], resize_keyboard = True))
+                
+            else:
+                context.user_data["createNoteState"] = SAVE_NOTE
+                context.user_data["noteTitle"] = message
+                # back here move us to Note menu
+                await context.bot.send_message(chat_id = chatId, text = "Введіть текст нотатки.", reply_markup = ReplyKeyboardMarkup([[back]], resize_keyboard = True))
+            
+        elif createNoteState == SAVE_NOTE:
+            context.user_data["backState"] = BACK_TO_NOTE_MENU
+            
+            del context.user_data["createNoteState"]
+            
+            note = {
+                "_id" : {
+                    "userID" : context.user_data.get("user").get("_id"),
+                    "title"  : context.user_data.get("noteTitle")
+                },
+                "text" : message,
+                "when" : datetime.datetime.now(pytz.timezone('Europe/Kiev')).strftime("%H:%M %d-%m-%Y")
+            }
+            
+            mongo.notes.insert_one(note)
+            del context.user_data["noteTitle"]
+            await context.bot.send_message(chat_id = chatId, text = "Нотатку створено.", reply_markup = ReplyKeyboardMarkup([[back]], resize_keyboard = True))
+    
+    
     if "Назад" == message:
         if backState == BACK_TO_MAIN_MENU:
             await MainMenu()
@@ -1254,6 +1354,21 @@ async def StudentMenuHandler(update : Update, context : CallbackContext):
         elif backState == BACK_TO_CONTACT_MENU:
             await ContactMenu()
         
+        elif backState == BACK_TO_NOTE_MENU:
+            if context.user_data.get("isViewNote"):
+                del context.user_data["isViewNote"]
+            
+            if context.user_data.get("createNoteState"):
+                del context.user_data["createNoteState"]
+            
+            await NoteMenu()
+        
+        elif backState == BACK_TO_VIENOTE_MENU:
+            await ViewNotesMenu()
+        
+        elif backState == BACK_TO_CREATE_NOTE_ENTER_TITLE:
+            await CreateNoteMenu()
+        
     elif "Розклад" == message:
         await TimetableMenu()
         
@@ -1261,16 +1376,27 @@ async def StudentMenuHandler(update : Update, context : CallbackContext):
         await WeeklyTimetableMenu()
     
     elif "Розклад на сьогодні" == message:
-            await DailyTimetableMenu()
+        await DailyTimetableMenu()
         
     elif "Список класу" == message:
         await ClassListMenu()
         
     elif "Домашнє завдання на завтра" == message:
-        pass
+        await TomorrowHomework()
+        
     elif "Період канікул" == message:
         pass
+    
     elif "Нотатки" == message:
+        await NoteMenu()
+    
+    elif "Переглянути" == message or context.user_data.get("isViewNote"):
+        await ViewNotesMenu()
+    
+    elif "Створити" == message or context.user_data.get("createNoteState"):
+        await CreateNoteMenu()
+    
+    elif "Очистити" == message:
         pass
     
     elif "Контакти" == message:
