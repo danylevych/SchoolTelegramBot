@@ -4,14 +4,24 @@ import asyncio
 from datetime import time, datetime
 import scripts.tools.pathes as pathes
 
-
+def GetSeason(month):
+    if 3 <= month <= 5:
+        return "spring"
+    elif 6 <= month <= 8:
+        return "summer"
+    elif 9 <= month <= 11:
+        return "autumn"
+    else:
+        return "winter"
+    
 # This class privide access to cutrently timetable for some school class.
 class FollowLesson:
     def __init__(self, wichClass: int):
         self.wichClass = str(wichClass)
         self.timetableLessons = dict()
-        self.currentDay = datetime.now(pytz.timezone('Europe/Kiev')).strftime('%A').lower()
-
+        self.currentDate = datetime.now(pytz.timezone('Europe/Kiev'))
+        self.currentDay = self.currentDate .strftime('%A').lower()
+        
         with open(pathes.TIMETABLE_LESSONS_JSON, "r") as file:
             import json
             tempData = json.load(file)[f"class{self.wichClass}"]
@@ -24,15 +34,30 @@ class FollowLesson:
     
     def FindLastLesson(self):
         lastLesson = None
+        
+        with open(pathes.VACATION_JSON, "r", encoding="utf8") as file:
+            if seasonVacation := json.load(file)[GetSeason(self.currentDate.month)]:
+                dateFormat = "%d.%m.%Y"
+                startVacation = datetime.strptime(seasonVacation.get("startVacation"), dateFormat)
+                endVacation = datetime.strptime(seasonVacation.get("endVacation"), dateFormat)
+                
+                timezone = pytz.timezone("Europe/Kiev")
+                startVacation = timezone.localize(startVacation)
+                endVacation = timezone.localize(endVacation)
+
+                if startVacation <= self.currentDate <= endVacation:
+                    return None
+        
         if self.currentDay in ("monday", "tuesday", "wednesday", "thursday", "friday"):
             
-            with open(pathes.TIMETABLE_JSON, "r", encoding="utf8") as file:
+            with open(pathes.TIMETABLE_JSON, "r", encoding = "utf8") as file:
                 dayTimeTable = json.load(file)[f"class{self.wichClass}"][self.currentDay]
                 lastLesson = dayTimeTable.items()
                 for item in dayTimeTable:
                     if dayTimeTable[item] is not None:
                         lastLesson = item
         return lastLesson
+    
     
     def GetCurrentLesson(self):
         currentTime = datetime.now(pytz.timezone('Europe/Kiev')).time()

@@ -6,21 +6,54 @@ import scripts.tools.pathes as pathes
 import scripts.tools.mongo  as mongo
 
 
+def GetSeason(month):
+    if 3 <= month <= 5:
+        return "spring"
+    elif 6 <= month <= 8:
+        return "summer"
+    elif 9 <= month <= 11:
+        return "autumn"
+    else:
+        return "winter"
+
+
+class Holiday(Enum):
+    VACATION = 1,
+    WEEKENDS = 2,
+    WEEKDAYS = 3
+
+
 class TimetableBase:
     def __init__(self):
         self.currentTime = None
         self.currentDay  = None
+        self.currentDate  = None
     
-    def IsHoliday(self):
+    def IsHoliday(self) -> Holiday:
+        with open(pathes.VACATION_JSON, "r", encoding="utf8") as file:
+            if seasonVacation := json.load(file)[GetSeason(self.currentDate.month)]:
+                dateFormat = "%d.%m.%Y"
+                startVacation = datetime.strptime(seasonVacation.get("startVacation"), dateFormat)
+                endVacation = datetime.strptime(seasonVacation.get("endVacation"), dateFormat)
+
+                timezone = pytz.timezone("Europe/Kiev")
+                startVacation = timezone.localize(startVacation)
+                endVacation = timezone.localize(endVacation)
+                self.currentDate = timezone.localize(self.currentDate)
+
+                if startVacation <= self.currentDate <= endVacation:
+                    return Holiday.VACATION
+
+        
         if self.currentDay not in ("monday", "tuesday", "wednesday", "thursday", "friday"):
             self.returnedData = None
-            return True
-        # TODO: Today is a holiday perriod.
-        return False
+            return Holiday.WEEKENDS
+        
+        return Holiday.WEEKDAYS
+    
     
     def SetCurrentDateTime(self):
-        # time(13, 40)
-        # "thursday"
+        self.currentDate = datetime.now(pytz.timezone('Europe/Kiev'))
         self.currentTime = datetime.now(pytz.timezone('Europe/Kiev')).time()
         self.currentDay  = datetime.now(pytz.timezone('Europe/Kiev')).strftime('%A').lower()
 
@@ -34,7 +67,8 @@ class TimetableForTeacher(TimetableBase):
     def GetTimetable(self):
         self.SetCurrentDateTime()
         
-        if self.IsHoliday():
+        self.holiday = self.IsHoliday()
+        if self.holiday in (Holiday.VACATION, Holiday.WEEKENDS):
             self.returnedData = None
             return (self, self.returnedData)
         
@@ -63,7 +97,10 @@ class TimetableForTeacher(TimetableBase):
     
     def AsString(self):
         if not self.returnedData:
-            return "Сьогодні заннять немає."
+            if self.holiday == Holiday.WEEKENDS:
+                return "Сьогодні заннять немає."
+            else:
+                return "Зараз в школі канікули."
         
         string = str()
         currentTime = currentTime  = datetime.now(pytz.timezone('Europe/Kiev')).time()
@@ -86,10 +123,14 @@ class TimetableForStudent(TimetableBase):
     def __init__(self, classNum):
         TimetableBase.__init__(self)
         self.classNum = str(classNum)
-    
-    
-    def GetDailyTimetable(self):
         self.SetCurrentDateTime()
+        self.holiday  = self.IsHoliday()
+    
+    
+    def GetDailyTimetable(self):        
+        if self.holiday in (Holiday.VACATION, Holiday.WEEKENDS):
+            self.returnedData = None
+            return (self, self.returnedData)
         
         with open(pathes.TIMETABLE_JSON, 'r', encoding = "utf8") as file:
             if timetable := json.load(file).get(f"class{self.classNum}").get(self.currentDay):
@@ -97,10 +138,8 @@ class TimetableForStudent(TimetableBase):
                 return (self, self.returnedData)
     
     
-    def GetWeeklyTimatable(self):
-        self.SetCurrentDateTime()
-        # TODO: chacking holidays
-        if self.IsHoliday():
+    def GetWeeklyTimatable(self):        
+        if self.holiday == Holiday.VACATION and GetSeason(self.currentDate.month) in ("summer", "winter"):
             self.returnedData = None
             return (self, self.returnedData)
         
@@ -119,12 +158,14 @@ class TimetableForStudent(TimetableBase):
 
     
     def GetTomorrow(self):
-        # Check is it now holliday?
-        self.SetCurrentDateTime()
         tomorrow = None
+        
+        if self.holiday == Holiday.VACATION:
+            return tomorrow
+        
         listOfStudyDays = ["monday", "tuesday", "wednesday", "thursday", "friday"]
         if self.currentDay in listOfStudyDays:
-            tomorrow = listOfStudyDays[listOfStudyDays.index(self.currentDay) + 1 % len(listOfStudyDays)]
+            tomorrow = listOfStudyDays[(listOfStudyDays.index(self.currentDay) + 1) % len(listOfStudyDays)]
         else:
             tomorrow = listOfStudyDays[0]
         
@@ -133,9 +174,13 @@ class TimetableForStudent(TimetableBase):
     
     def PickTomorrowHomework(self):
         tomorrow = self.GetTomorrow()
-        if not tomorrow:
-            return "Домашнього завдання на канікулах не роблять.)"
         
+        if not tomorrow:
+            if self.holiday == Holiday.VACATION:
+                return "Домашнього завдання на канікулах не роблять.)"
+            else: 
+                return "На жаль, сталася якась помилка."
+
         ukrNamesOfDay : dict = {
                 "monday"    : "Понеділок",
                 "tuesday"   : "Вівторок",
@@ -143,23 +188,36 @@ class TimetableForStudent(TimetableBase):
                 "thursday"  : "Четвер",
                 "friday"    : "П'ятниця",
             }
-        
+
         tomorrowTimetabe = None
         with open(pathes.TIMETABLE_JSON, 'r', encoding = "utf8") as file:
             tomorrowTimetabe = json.load(file).get(f"class{self.classNum}").get(tomorrow)
-        
+
         tomorrowTimetabe = { key : value for (key, value) in tomorrowTimetabe.items() if value is not None }  # remove all non-value pairs
-        tomorrowTimetabe = [{"_id": {"class": int(self.classNum), "lesson": item}} for item in list(tomorrowTimetabe.values())]  # made the filter set for mongoDB
-        
-        homeworks = mongo.homeworksfind({"$or": tomorrowTimetabe})
+        tomorrowTimetabe = [{"_id": {"lesson": item, "class": int(self.classNum)}} for item in list(tomorrowTimetabe.values())]  # made the filter set for mongoDB
+
+        # TODO: check if hommework is actual.
+        homeworks = mongo.homeworks.find({"$or": tomorrowTimetabe})
+
         if not homeworks:
             return "Домашньої роботи на завтра не знайдено.)"
-        # TODO: make the homework's string 
+
+        string = f"Домашнє завдання на {ukrNamesOfDay.get(tomorrow).lower()}" + ":\n"
+        for homework in homeworks:
+            (id, creator, task, when) = homework.values()
+            string += "- Предмет: " + id.get("lesson") + ":\n"
+            string += "    - Завдання: " + task + "\n"
+            string += "    - Створено: " + creator + " " + when
+            
+        return string
     
     
     def AsString(self):
         if self.returnedData is None:
-            return "Сьогодні немає уроків."
+            if self.holiday == Holiday.WEEKDAYS:
+                return "Зараз вихідні, ви не можете переглянути розклад на день."
+            else:
+                return "Зараз канікули."
         
         elif self.returnedData is not None and self.returnedData.get("monday"):  # We are returning the weekly timetable.
             resultStr : str = str()

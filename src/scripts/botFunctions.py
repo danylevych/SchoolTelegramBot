@@ -135,7 +135,6 @@ async def StudentMenu(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [KeyboardButton("Розклад")],
         [KeyboardButton("Список класу")],
         [KeyboardButton("Домашнє завдання на завтра")],
-        [KeyboardButton("Період канікул")],
         [KeyboardButton("Нотатки")],
         [KeyboardButton("Контакти")],
         [KeyboardButton("Вихід")]]
@@ -187,10 +186,10 @@ async def EntryMenuHandler(update : Update, context : CallbackContext):
     LOGIN_WRONG = -1
     PASSWORD_ENTER = 2
     PASSWORD_WRONG = -2
-    FORGOT_PASSWORD = -3
-    FORGOT_PASSWORD_SEND_EMAIL = 3
-    FORGOT_PASSWORD_ENTER_CODE = 4
-    FORGOT_PASSWORD_ENTER_NEW = 5
+    FORGOT_PASSWORD = 3
+    FORGOT_PASWORD_SHURE = 4
+    FORGOT_PASSWORD_ENTER_CODE = 5
+    FORGOT_PASSWORD_ENTER_NEW = 6
     
     REGISTRATION_NAME_ENTER = 1
     REGISTRATION_NAME_WRONG = -1
@@ -236,6 +235,10 @@ async def EntryMenuHandler(update : Update, context : CallbackContext):
         
         if user := UserExistInDB(userLoginData):
             if not user.get("chatID"):  # User try to entry for other computer. 
+                
+                if context.user_data.get("isEntryMenu"):
+                    del context.user_data["isEntryMenu"]
+
                 context.user_data["user"]["id"] = chatId
                 context.user_data["user"]["firstName"] = user.get("firstName")
                 context.user_data["user"]["lastName"] = user.get("lastName")
@@ -277,7 +280,7 @@ async def EntryMenuHandler(update : Update, context : CallbackContext):
         else:
             await context.bot.send_message(chat_id = chatId, text = "Пароль неправильний!")
             await asyncio.sleep(1)
-            await context.bot.send_message(chat_id = chatId, text = "Спробувати ще раз!", reply_markup = replyMarkup)
+            await context.bot.send_message(chat_id = chatId, text = "Спробувати ще раз?", reply_markup = replyMarkup)
             context.user_data["logInState"] = PASSWORD_WRONG
 
     async def ForfotPasswordHandler():
@@ -294,9 +297,8 @@ async def EntryMenuHandler(update : Update, context : CallbackContext):
 
     async def ForfotPasswordEnterCodeHandler():
         if rightCode := context.user_data.get("code"):
-            if rightCode in message:
-                await context.bot.send_message(chat_id = chatId, text = "Ви успішно підтвердили свою пошту.\nДалі введіть логін, який будете" +
-                                            " використовувати під час входу.\n<b>Радимо використати свою пошту.</b>", parse_mode = "HTML") 
+            if str(rightCode) in message:
+                await context.bot.send_message(chat_id = chatId, text = "Ви успішно підтвердили свою пошту.\nДалі введіть новий пароль", parse_mode = "HTML") 
                 
                 del context.user_data["code"]
                 context.user_data["logInState"] = FORGOT_PASSWORD_ENTER_NEW  # User is going to send his new password.
@@ -311,7 +313,10 @@ async def EntryMenuHandler(update : Update, context : CallbackContext):
         await context.bot.delete_message(chat_id = chatId, message_id = messageId)  # Delete the password, that user provided.
         
         if CheckPasssword(message):
-            mongo.users.update_one({"logIn.login" : context.user_data.get("logIn").get("login")}, {"logIn.password" : message})
+            if context.user_data.get("isEntryMenu"):
+                del context.user_data["isEntryMenu"]
+
+            mongo.users.update_one({"logIn.login": context.user_data.get("logIn").get("login")}, {"$set": {"chatID": chatId, "logIn.password": message}})
             await context.bot.send_message(chat_id = chatId, text = "Ви успішно відновили пароль.")
             
             await StudentMenu(update, context)
@@ -473,10 +478,13 @@ async def EntryMenuHandler(update : Update, context : CallbackContext):
             await context.bot.send_message(chat_id = chatId, text = "Ви ввели пароль, який не відповідає вимогам. Будь ласка повторіть введення.")      
     
     
+    print("before", context.user_data.get("logInState"))
     
     if "Відновити пароль" == message:
-        context.user_data["logInState"] = FORGOT_PASSWORD
+        context.user_data["logInState"] = logInState = FORGOT_PASSWORD
+        print("we are in forgot menu")
     
+    print("after", context.user_data.get("logInState"))
     
     if "Вхід" == message:
         await context.bot.send_message(chat_id = chatId, text = "Введіть ваш логін", reply_markup = ReplyKeyboardRemove())
@@ -487,26 +495,38 @@ async def EntryMenuHandler(update : Update, context : CallbackContext):
     
     elif logInState == PASSWORD_ENTER:
         await EnterPasswordHandler()
-        if context.user_data.get("isEntryMenu"):
-            del context.user_data["isEntryMenu"]
     
     elif logInState == LOGIN_WRONG:
         await YesNoEntryHandler(update, context, "logInState", LOGIN_ENTER, "Надішліть свій логін.", "Тоді вертаємося до початкового меню.")
     
     elif logInState == PASSWORD_WRONG:
+        
         await YesNoEntryHandler(update, context, "logInState", PASSWORD_ENTER, "Надішліть свій пароль.", "Тоді вертаємося до початкового меню.")
+        print("password wrong")
 
     elif logInState == FORGOT_PASSWORD:
-        await YesNoEntryHandler(update, context, "logInState", FORGOT_PASSWORD_SEND_EMAIL, "Добре.", "Тоді вертаємося до початкового меню.")
-    
-    elif logInState == FORGOT_PASSWORD_SEND_EMAIL:
-        await ForfotPasswordHandler()
+        context.user_data["logInState"] = FORGOT_PASWORD_SHURE
+        await context.bot.send_message(chat_id = chatId, text = "Ви дійсно бажаєте відновити пароль?", reply_markup = replyMarkup)
+        
+
+    elif logInState == FORGOT_PASWORD_SHURE:
+        if "Так" == message:
+            await context.bot.send_message(chat_id = chatId, text = "Добре.", reply_markup = ReplyKeyboardRemove())
+            context.user_data["logInState"] = FORGOT_PASSWORD_ENTER_CODE
+            await ForfotPasswordHandler()
+
+        elif "Ні" == message:
+            await context.bot.send_message(chat_id = chatId, text = "Тоді повертаємося до головного меню.", reply_markup = ReplyKeyboardRemove())
+            await EntryMenu(update, context)  # TODO: To first menu.
+
+        else:
+            await context.bot.send_message(chat_id = chatId, text = "Введено некоректне повідомлення")
     
     elif logInState == FORGOT_PASSWORD_ENTER_CODE:
         await ForfotPasswordEnterCodeHandler()
     
     elif logInState == FORGOT_PASSWORD_ENTER_NEW:
-            await ForgotPasswordEnterNewHandler()
+        await ForgotPasswordEnterNewHandler()
 
 
     elif "Реєстрація" == message:
@@ -1229,7 +1249,6 @@ async def StudentMenuHandler(update : Update, context : CallbackContext):
             [KeyboardButton("Розклад")],
             [KeyboardButton("Список класу")],
             [KeyboardButton("Домашнє завдання на завтра")],
-            [KeyboardButton("Період канікул")],
             [KeyboardButton("Нотатки")],
             [KeyboardButton("Контакти")],
             [KeyboardButton("Вихід")]]
@@ -1607,9 +1626,6 @@ async def StudentMenuHandler(update : Update, context : CallbackContext):
         
     elif "Домашнє завдання на завтра" == message:
         await TomorrowHomework()
-        
-    elif "Період канікул" == message:
-        pass
     
     elif "Нотатки" == message:
         await NoteMenu()
@@ -1640,7 +1656,7 @@ async def StudentMenuHandler(update : Update, context : CallbackContext):
     
     elif "Вихід" == message:
         mongo.users.update_one({"chatID" : chatId}, {"$set" : {"chatID" : None}})
-        del context.user_data["isStudenMenu"]
+        del context.user_data["isStudentMenu"]
         await start(update, context)
 
 
@@ -1654,7 +1670,7 @@ async def YesNoEntryHandler(update : Update, context : CallbackContext, stateNam
             
     elif "Ні" == message:
         await context.bot.send_message(chat_id = chatId, text = noText, reply_markup = ReplyKeyboardRemove())
-        EntryMenu(update, context)  # TODO: To first menu.
+        await EntryMenu(update, context)  # TODO: To first menu.
     
     else:
         await context.bot.send_message(chat_id = chatId, text = "Введено некоректне повідомлення")
