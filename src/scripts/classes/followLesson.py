@@ -23,7 +23,6 @@ class FollowLesson:
         self.currentDay = self.currentDate .strftime('%A').lower()
         
         with open(pathes.TIMETABLE_LESSONS_JSON, "r") as file:
-            import json
             tempData = json.load(file)[f"class{self.wichClass}"]
             for (numLesson, period) in tempData.items():
                 self.timetableLessons[numLesson] = {
@@ -49,7 +48,6 @@ class FollowLesson:
                     return None
         
         if self.currentDay in ("monday", "tuesday", "wednesday", "thursday", "friday"):
-            
             with open(pathes.TIMETABLE_JSON, "r", encoding = "utf8") as file:
                 dayTimeTable = json.load(file)[f"class{self.wichClass}"][self.currentDay]
                 lastLesson = dayTimeTable.items()
@@ -62,6 +60,7 @@ class FollowLesson:
     def GetCurrentLesson(self):
         currentTime = datetime.now(pytz.timezone('Europe/Kiev')).time()
 
+        
         firstLesson = '1'
         lastLesson = self.FindLastLesson()
 

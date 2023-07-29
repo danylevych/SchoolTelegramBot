@@ -1,6 +1,6 @@
 import scripts.tools.config as config
 import scripts.botFunctions as botFunctions
-from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, CallbackQueryHandler, filters
+from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters
 
 def main():
     app_builder = ApplicationBuilder()
@@ -8,7 +8,7 @@ def main():
 
     if app is not None:
         app.add_handler(CommandHandler("start", botFunctions.start))
-        # app.job_queue.run_repeating(botFunctions.CheckAirDangerous, interval = 30, first = 0)
+        app.job_queue.run_repeating(botFunctions.CheckAirDangerous, interval = 2, first = 0)
         app.add_handler(MessageHandler(filters.Text(), botFunctions.MessagesHandler))
         app.run_polling()
     else:

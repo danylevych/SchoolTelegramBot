@@ -7,6 +7,7 @@ TEACHERS_JSON           : Final = "data/schoolData/teachers.json"
 TIMETABLE_LESSONS_JSON  : Final = "data/schoolData/timetableLessons.json"
 USERS_JSON              : Final = "data/usersData/users.json"
 VACATION_JSON           : Final = "data/schoolData/vacation.json"
+AIRDANGEROUS_JSON       : Final = "data/schoolData/airdangerous.json"
 
 # Txt files
 STUDENTS_TXT            : Final = "data/readingData/students.txt"

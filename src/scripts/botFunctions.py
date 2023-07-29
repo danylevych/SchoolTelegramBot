@@ -129,6 +129,7 @@ async def TeacherMenu(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def StudentMenu(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.job_queue.run_repeating(SendLessonNotification, interval = 2, first = 0, user_id = context.user_data.get("user").get("id"))
     context.user_data["isStudentMenu"] = True
     
     buttons = [
@@ -235,7 +236,6 @@ async def EntryMenuHandler(update : Update, context : CallbackContext):
         
         if user := UserExistInDB(userLoginData):
             if not user.get("chatID"):  # User try to entry for other computer. 
-                
                 if context.user_data.get("isEntryMenu"):
                     del context.user_data["isEntryMenu"]
 
@@ -319,7 +319,7 @@ async def EntryMenuHandler(update : Update, context : CallbackContext):
             mongo.users.update_one({"logIn.login": context.user_data.get("logIn").get("login")}, {"$set": {"chatID": chatId, "logIn.password": message}})
             await context.bot.send_message(chat_id = chatId, text = "Ви успішно відновили пароль.")
             
-            await StudentMenu(update, context)
+            await EnterPasswordHandler()
             
         else:
             await context.bot.send_message(chat_id = chatId, text = "Ви ввели пароль, який не відповідає вимогам. Будь ласка повторіть введення.") 
@@ -447,9 +447,9 @@ async def EntryMenuHandler(update : Update, context : CallbackContext):
 
             user = {
                 "chatID"    : chatId,
-                "fatherName": context.user_data["signInfo"]["fatherName"],
-                "firstName" : context.user_data["signInfo"]["firstName"],
                 "lastName"  : context.user_data["signInfo"]["lastName"],
+                "firstName" : context.user_data["signInfo"]["firstName"],
+                "fatherName": context.user_data["signInfo"]["fatherName"],
                 "phone"     : None,
                 "email"     : context.user_data["signInfo"]["email"],
                 "logIn"     : {
@@ -478,13 +478,8 @@ async def EntryMenuHandler(update : Update, context : CallbackContext):
             await context.bot.send_message(chat_id = chatId, text = "Ви ввели пароль, який не відповідає вимогам. Будь ласка повторіть введення.")      
     
     
-    print("before", context.user_data.get("logInState"))
-    
     if "Відновити пароль" == message:
         context.user_data["logInState"] = logInState = FORGOT_PASSWORD
-        print("we are in forgot menu")
-    
-    print("after", context.user_data.get("logInState"))
     
     if "Вхід" == message:
         await context.bot.send_message(chat_id = chatId, text = "Введіть ваш логін", reply_markup = ReplyKeyboardRemove())
@@ -1677,33 +1672,48 @@ async def YesNoEntryHandler(update : Update, context : CallbackContext, stateNam
 
 
 async def CheckAirDangerous(context : CallbackContext):
-    state = await requests.get("https://ubilling.net.ua/aerialalerts/").json()["states"]["Луганська область"]
+    # respond = None
+    # with open(pathes.AIRDANGEROUS_JSON, 'r', encoding = "utf8") as file:
+    #     respond = json.load(file)
+        
+    respond = requests.get("https://ubilling.net.ua/aerialalerts/").json()
+    if respond and (state := respond.get("states").get("Львівська область")):
     
-    # TODO: will try to save the data of current state in context.caht_data and read this stuff from it
-    
-    if state["alertnow"]:
-        users = mongo.users.find()  # Get all users.
-        for user in users:
-            await context.bot.send_message(chat_id = user.get("_id"),
-                                            text = "УВАГА!\nОголошена повітряна тривога!\n" + 
-                                            "Уроки призупинені!\n" + 
-                                            "Пройдіть в укриття!\n" + 
-                                            "Бережіться. Цьом)")
+        if state.get("alertnow") and not context.bot_data.get("isSendedNotifyAirDangerous"):
+            context.bot_data["isSendedNotifyAirDangerous"] = True
+            users = mongo.users.find({"chatID": {"$ne": None}})  # Get all active users.
+            for user in users:
+                await context.bot.send_message(chat_id = user.get("chatID"),
+                                                text = "🔴<b>УВАГА!\nОголошена повітряна тривога у Львівській області!</b>\n" + 
+                                                "Пройдіть в укриття!\n" + 
+                                                "Слідкуйте за подальшими повідомленнями.", parse_mode = "HTML")
+                
+        elif not state.get("alertnow") and context.bot_data.get("isSendedNotifyAirDangerous"):
+            context.bot_data["isSendedNotifyAirDangerous"] = False
+            users = mongo.users.find({"chatID": {"$ne": None}})  # Get all active users.
+            for user in users:
+                await context.bot.send_message(chat_id = user.get("chatID"), text = "🟢<b>УВАГА! Відбій повітряної тривоги!</b>\n", parse_mode = "HTML")
 
 
-async def send_lesson_start_notification(context : CallbackContext):
+async def SendLessonNotification(context : CallbackContext):
+    if context.bot_data.get("isSendedNotifyAirDangerous"):
+        return
+    
+    chatId = context.user_data.get("user").get("id")
     followLesson = FollowLesson(int(context.user_data.get("user").get("class")))
     lessonData = await followLesson.GetCurrentLessonAsync()
-
+    
+    print(lessonData)
+    
     if lessonData is not None:  # The lessons' time.
         if not lessonData["isHoliday"] and not lessonData["isBreak"]:  # The lesson start or heppen.
             if sendedLessonData := context.user_data.get("user").get("lessonData"):
                 # If we have sended msg about lesson to current user.
-                if sendedLessonData["infoLesson"] == lessonData["infoLesson"]:
+                if sendedLessonData["infoLesson"] == lessonData["infoLesson"] and sendedLessonData["isBreak"] == lessonData["isBreak"]:
                     return
 
             # Sending.
-            await context.bot.send_message(chat_id = context.user_data.get("user").get("_id"), 
+            await context.bot.send_message(chat_id = chatId, 
                                             text = PhrasesGenerator(lessonData["infoLesson"]["name"], 
                                                                     pathes.START_LESSON_PHRASES_TXT).GetRandomPhrase() +
                                             "\nПочаток уроку : {}".format(lessonData["infoLesson"]["startTime"]) + 
@@ -1715,11 +1725,11 @@ async def send_lesson_start_notification(context : CallbackContext):
 
         elif lessonData["isBreak"]:  # if we have a break.
             if sendedLessonData := context.user_data.get("user").get("lessonData"):
-                if sendedLessonData["infoLesson"] == lessonData["infoLesson"]:
+                if sendedLessonData["infoLesson"] == lessonData["infoLesson"] and sendedLessonData["isBreak"] == lessonData["isBreak"]:
                     return
 
             # Sending.
-            await context.bot.send_message(chat_id = context.user_data.get("user").get("_id"), 
+            await context.bot.send_message(chat_id = chatId, 
                     text = PhrasesGenerator(lessonData["infoLesson"]["name"], 
                                             pathes.BREAK_PHRASES_TXT).GetRandomPhrase() +
                                             "\nПочаток уроку : {}".format(lessonData["infoLesson"]["startTime"]) + 
