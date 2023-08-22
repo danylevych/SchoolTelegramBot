@@ -159,15 +159,6 @@ async def MessagesHandler(update: Update, context: CallbackContext):
     
     elif context.user_data.get("isStudentMenu"):
         await StudentMenuHandler(update, context)
-    # if context.user_data.get("user").get("firstStartCalling"):  # The first calling.
-    #     await StartCallMsgHandler(update.message.text, update.effective_chat.id, context)
-    #     del context.user_data["user"]["firstStartCalling"]  # The info about first calling has deleted.
-    
-    # elif context.user_data.get("user").get("enteringFullnameAndClass"):  # User entered his name.
-    #     await StudentNameInputHandler(update.message.text, update.effective_chat.id, context)
-    
-    # else:
-    #     await context.bot.send_message(chat_id = update.effective_chat.id, text = "Нажаль такої команди не існує)")
 
 
 async def EntryMenuHandler(update : Update, context : CallbackContext):
@@ -1676,10 +1667,12 @@ async def CheckAirDangerous(context : CallbackContext):
     # with open(pathes.AIRDANGEROUS_JSON, 'r', encoding = "utf8") as file:
     #     respond = json.load(file)
         
-    respond = requests.get("https://ubilling.net.ua/aerialalerts/").json()
-    if respond and (state := respond.get("states").get("Львівська область")):
-    
-        if state.get("alertnow") and not context.bot_data.get("isSendedNotifyAirDangerous"):
+    # respond = requests.get("https://ubilling.net.ua/aerialalerts/").json()
+    # if respond and (state := respond.get("states").get("Львівська область")):
+    import scripts.tools.config as config
+    respond = requests.get(config.AIR_DANG_URL, headers = config.AIR_DANG_HEADERS).json()[0]
+    if respond and (alter := respond.get("activeAlerts")):
+        if alter and not context.bot_data.get("isSendedNotifyAirDangerous"):
             context.bot_data["isSendedNotifyAirDangerous"] = True
             users = mongo.users.find({"chatID": {"$ne": None}})  # Get all active users.
             for user in users:
@@ -1688,7 +1681,7 @@ async def CheckAirDangerous(context : CallbackContext):
                                                 "Пройдіть в укриття!\n" + 
                                                 "Слідкуйте за подальшими повідомленнями.", parse_mode = "HTML")
                 
-        elif not state.get("alertnow") and context.bot_data.get("isSendedNotifyAirDangerous"):
+        elif not alter and context.bot_data.get("isSendedNotifyAirDangerous"):
             context.bot_data["isSendedNotifyAirDangerous"] = False
             users = mongo.users.find({"chatID": {"$ne": None}})  # Get all active users.
             for user in users:

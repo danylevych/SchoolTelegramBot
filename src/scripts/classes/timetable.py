@@ -39,7 +39,7 @@ class TimetableBase:
                 timezone = pytz.timezone("Europe/Kiev")
                 startVacation = timezone.localize(startVacation)
                 endVacation = timezone.localize(endVacation)
-                self.currentDate = timezone.localize(self.currentDate)
+                # self.currentDate = timezone.localize(self.currentDate)
 
                 if startVacation <= self.currentDate <= endVacation:
                     return Holiday.VACATION
