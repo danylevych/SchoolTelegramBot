@@ -17,7 +17,7 @@ from telegram import Update, ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardR
 
 
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def Start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["user"] = dict()
     
     if user := ChatIdIExistInDB(update.effective_chat.id):
@@ -40,10 +40,10 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             
             context.user_data["user"]["classTeacher"] = int(teacher.get("classTeacher"))
             
-            if context.user_data.get("user").get("classTeacher") != 0:
+            if context.user_data.get("user").get("classTeacher") != 0:  # Teacher teaches any class.
                 await TeacherLeaderMenu(update, context)
             
-            else:
+            else:  # Teacher doesn't teach any class.
                 await TeacherMenu(update, context)
             
         else:
@@ -144,6 +144,29 @@ async def StudentMenu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await context.bot.send_message(chat_id = update.effective_chat.id, text = "Ви ввійшли як <b>УЧЕНЬ</b>", parse_mode = "HTML", reply_markup = replyMarkup)
 
 
+async def MessagesHandlerAdminTeacher(update: Update, context: CallbackContext):
+    message : str = update.message.text
+    
+    if message == "АДМІНІСТРАТОР":
+        context.user_data["user"]["type"] = "admin"
+        await AdminMenu(update, context)
+        
+    else:
+        user = context.user_data.get("user")
+        
+        teacher = mongo.teachers.find_one({ "firstName"  : user.get("firstName"), 
+                                            "lastName"   : user.get("lastName"),
+                                            "fatherName" : user.get("fatherName")})
+            
+        context.user_data["user"]["classTeacher"] = int(teacher.get("classTeacher"))
+            
+        if context.user_data.get("user").get("classTeacher") != 0:  # Teacher teaches any class.
+            await TeacherLeaderMenu(update, context)
+            
+        else:  # Teacher doesn't teach any class.
+            await TeacherMenu(update, context)
+
+
 async def MessagesHandler(update: Update, context: CallbackContext):
     if context.user_data.get("isEntryMenu"):
         await EntryMenuHandler(update, context)
@@ -240,9 +263,17 @@ async def EntryMenuHandler(update : Update, context : CallbackContext):
                 userType = user.get("userType")
 
                 if userType.get("developer") or userType.get("admin"):
+                    # So, we might have a situation, when the admin might have subjects, that he is teaching.
+                    # To diside this issue we create the menu, when the admin who is a teacher at the time 
+                    # can choose, what type of entrance he feel like,
+                    if userType.get("admin") and userType.get("teacher"):  # We get the situation, which we discriped top.
+                        buttons = [["АДМІНІСТРАТОР"], ["ВЧИТЕЛЬ"]]
+                        replyMarkup = ReplyKeyboardMarkup(buttons, resize_keyboard = True)
+                        await context.bot.send_message(chat_id = chatId, text = "Виберіть тип користувача під яким намагаєтеся здійснити вхід.", reply_markup = replyMarkup)
+                        return
+                    
                     context.user_data["user"]["type"] = "developer" if userType.get("developer") else "admin"
 
-                    del context.user_data["isEntryMenu"]
                     await asyncio.sleep(1)
                     await context.bot.send_message(chat_id = chatId, text = "Вхід успішний!")
 
@@ -265,7 +296,7 @@ async def EntryMenuHandler(update : Update, context : CallbackContext):
                     await StartUserMenu(update, context, user)
             else:
                 await context.bot.send_message(chat_id = chatId, text = "Подвійний вхід заборонений!")
-                await start(update, context)
+                await Start(update, context)
 
             
         else:
@@ -602,7 +633,7 @@ async def AdminMenuHandler(update : Update, context : CallbackContext):
     elif "Вихід" == message:
         mongo.users.update_one({"chatID" : chatId}, {"$set" : {"chatID" : None}})
         del context.user_data["isAdminMenu"]
-        await start(update, context)
+        await Start(update, context)
         
     elif "Для усіх" == message:
         await SetMenu(backSate = BACK_TO_CREATING_MENU, notifyState = NOTIFI_ENTER_TO_ALL)
@@ -966,7 +997,7 @@ async def TeacherLeaderMenuHandler(update : Update, context : CallbackContext):
     elif "Вихід" == message:
         mongo.users.update_one({"chatID" : chatId}, {"$set" : {"chatID" : None}})
         del context.user_data["isTecherLeaderMenu"]
-        await start(update, context)
+        await Start(update, context)
 
 
 async def TeacherMenuHandler(update : Update, context : CallbackContext):
@@ -1186,7 +1217,7 @@ async def TeacherMenuHandler(update : Update, context : CallbackContext):
     elif "Вихід" == message:
         mongo.users.update_one({"chatID" : chatId}, {"$set" : {"chatID" : None}})
         del context.user_data["isTecherMenu"]
-        await start(update, context)
+        await Start(update, context)
 
 
 async def StudentMenuHandler(update : Update, context : CallbackContext):
@@ -1643,7 +1674,7 @@ async def StudentMenuHandler(update : Update, context : CallbackContext):
     elif "Вихід" == message:
         mongo.users.update_one({"chatID" : chatId}, {"$set" : {"chatID" : None}})
         del context.user_data["isStudentMenu"]
-        await start(update, context)
+        await Start(update, context)
 
 
 async def YesNoEntryHandler(update : Update, context : CallbackContext, stateName : str, statePos : int, yesText : str, noText : str):

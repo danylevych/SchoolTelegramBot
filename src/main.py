@@ -7,7 +7,12 @@ def main():
     app = app_builder.token(config.BOT_TOKEN).build()
 
     if app is not None:
-        app.add_handler(CommandHandler("start", botFunctions.start))
+        specialKeywords = ["АДМІНІСТРАТОР", "ВЧИТЕЛЬ"]
+        # Create a custom filter that checks if the message contains any of the special keywords
+        specialKeywordFilter = filters.Text() & (filters.Regex(r'\b(?:' + '|'.join(specialKeywords) + r')\b'))
+        app.add_handler(MessageHandler(filters.Text(["АДМІНІСТРАТОР", "ВЧИТЕЛЬ"]), botFunctions.MessagesHandlerAdminTeacher))
+        
+        app.add_handler(CommandHandler("start", botFunctions.Start))
         app.job_queue.run_repeating(botFunctions.CheckAirDangerous, interval = 60, first = 0)
         app.add_handler(MessageHandler(filters.Text(), botFunctions.MessagesHandler))
         app.run_polling()
