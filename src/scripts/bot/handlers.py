@@ -1,170 +1,18 @@
-import json
 import pytz
 import datetime
-import asyncio
-import requests
-import scripts.tools.mongo as mongo
-import scripts.tools.pathes as pathes
 
+from scripts.bot.menus import *
+from scripts.bot.notify import *
+from scripts.bot.toolsFunc import * 
+
+import asyncio
+import scripts.tools.mongo as mongo
+
+from telegram.ext import CallbackContext
 from scripts.classes.emailSender import Email
-from scripts.tools.phrases import PhrasesGenerator
-from scripts.classes.followLesson import FollowLesson
 from scripts.classes.teacherSubjects import TeacherSubjects
 from scripts.classes.timetable import TimetableForTeacher, TimetableForStudent
-
-from telegram.ext import CallbackContext, ContextTypes
 from telegram import Update, ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemove
-
-
-
-async def Start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    context.user_data["user"] = dict()
-    
-    if user := ChatIdIExistInDB(update.effective_chat.id):
-        context.user_data["user"]["id"] = user.get("chatID")
-        context.user_data["user"]["firstName"] = user.get("firstName")
-        context.user_data["user"]["lastName"] = user.get("lastName")
-        context.user_data["user"]["fatherName"] = user.get("fatherName")
-        
-        userType = user.get("userType")
-        
-        if userType.get("developer") or userType.get("admin"):
-            context.user_data["user"]["type"] = "developer" if userType.get("developer") else "admin"
-            await AdminMenu(update, context)
-            
-
-        elif user.get("userType").get("teacher"):
-            teacher = mongo.teachers.find_one({ "firstName"  : user.get("firstName"), 
-                                                "lastName"   : user.get("lastName"),
-                                                "fatherName" : user.get("fatherName")})
-            
-            context.user_data["user"]["classTeacher"] = int(teacher.get("classTeacher"))
-            
-            if context.user_data.get("user").get("classTeacher") != 0:  # Teacher teaches any class.
-                await TeacherLeaderMenu(update, context)
-            
-            else:  # Teacher doesn't teach any class.
-                await TeacherMenu(update, context)
-            
-        else:
-            await StartUserMenu(update, context, user)
-
-    else:
-        await update.message.reply_text(f"Привіт, {update.effective_user.full_name}.")
-        await EntryMenu(update, context)
-
-
-async def StartUserMenu(update: Update, context: ContextTypes.DEFAULT_TYPE, user):
-    context.user_data["user"]["_id"] = user.get("_id")
-    
-    studentInfo = {
-        "lastName": user.get("lastName"),
-        "firstName": user.get("firstName"),
-        "fatherName": user.get("fatherName")
-    }
-
-    students = mongo.students.find_one({})
-
-    for (classNum, studentsList) in students.items():
-        if classNum != "_id" and studentsList is not None and studentInfo in studentsList:
-            context.user_data["user"]["class"] = int(classNum)
-            break
-    await StudentMenu(update, context)
-
-
-async def EntryMenu(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    signUp = KeyboardButton("Реєстрація")
-    logIn  = KeyboardButton("Вхід")
-    reply_markup = ReplyKeyboardMarkup([[signUp, logIn]], resize_keyboard=True)
-    
-    context.user_data["isEntryMenu"] = True
-
-    # Clearing the previous values.
-    if context.user_data.get("logInState"):
-        del context.user_data["logInState"]
-
-    if context.user_data.get("signState"):
-        del context.user_data["signState"]
-
-    await asyncio.sleep(1)
-    await context.bot.send_message(chat_id = update.effective_chat.id, text = "Оберіть дію", reply_markup = reply_markup)
-
-
-async def AdminMenu(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    context.user_data["isAdminMenu"] = True
-        
-    notification = KeyboardButton("Створити оголошення")
-    exit         = KeyboardButton("Вихід")
-    replyMarkup  = ReplyKeyboardMarkup([[notification], [exit]], resize_keyboard = True)
-    
-    await context.bot.send_message(chat_id = update.effective_chat.id, text = "Ви ввійшли як " + 
-                                    ("<b>РОЗРОБНИК</b>" if context.user_data.get("user").get("type") == "developer" else "<b>АДМІНІСТРАТОР ШКОЛИ</b>"),
-                                    parse_mode = "HTML", reply_markup = replyMarkup)
-
-
-async def TeacherLeaderMenu(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    context.user_data["isTecherLeaderMenu"] = True
-    
-    notification   = KeyboardButton("Створити оголошення для учнів")
-    checkTimetable = KeyboardButton("Подивитися сьогоднішній розклад")
-    createHomeWork = KeyboardButton("Створити домашнє завдання")
-    checkClassList = KeyboardButton("Переглянути список учнів")
-    exit           = KeyboardButton("Вихід")
-    replyMarkup    = ReplyKeyboardMarkup([[notification], [checkTimetable], [checkClassList], [createHomeWork], [exit]], resize_keyboard = True)
-    
-    await context.bot.send_message(chat_id = update.effective_chat.id, text = "Ви ввійшли як <b>ВЧИТЕЛЬ</b>", parse_mode = "HTML", reply_markup = replyMarkup)
-
-
-async def TeacherMenu(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    context.user_data["isTecherMenu"] = True
-    
-    notification   = KeyboardButton("Створити оголошення для учнів")
-    checkTimetable = KeyboardButton("Подивитися сьогоднішній розклад")
-    createHomeWork = KeyboardButton("Створити домашнє завдання")
-    checkClassList = KeyboardButton("Переглянути список учнів")
-    exit           = KeyboardButton("Вихід")
-    replyMarkup    = ReplyKeyboardMarkup([[notification], [checkTimetable], [checkClassList], [createHomeWork], [exit]], resize_keyboard = True)
-    
-    await context.bot.send_message(chat_id = update.effective_chat.id, text = "Ви ввійшли як <b>ВЧИТЕЛЬ</b>", parse_mode = "HTML", reply_markup = replyMarkup)
-
-
-async def StudentMenu(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    context.job_queue.run_repeating(SendLessonNotification, interval = 2, first = 0, user_id = context.user_data.get("user").get("id"))
-    context.user_data["isStudentMenu"] = True
-    
-    buttons = [
-        [KeyboardButton("Розклад")],
-        [KeyboardButton("Список класу")],
-        [KeyboardButton("Домашнє завдання на завтра")],
-        [KeyboardButton("Нотатки")],
-        [KeyboardButton("Контакти")],
-        [KeyboardButton("Вихід")]]
-    replyMarkup    = ReplyKeyboardMarkup(buttons, resize_keyboard = True)
-    
-    await context.bot.send_message(chat_id = update.effective_chat.id, text = "Ви ввійшли як <b>УЧЕНЬ</b>", parse_mode = "HTML", reply_markup = replyMarkup)
-
-
-async def MessagesHandlerAdminTeacher(update: Update, context: CallbackContext):
-    message : str = update.message.text
-    
-    if message == "АДМІНІСТРАТОР":
-        context.user_data["user"]["type"] = "admin"
-        await AdminMenu(update, context)
-        
-    else:
-        user = context.user_data.get("user")
-        
-        teacher = mongo.teachers.find_one({ "firstName"  : user.get("firstName"), 
-                                            "lastName"   : user.get("lastName"),
-                                            "fatherName" : user.get("fatherName")})
-            
-        context.user_data["user"]["classTeacher"] = int(teacher.get("classTeacher"))
-            
-        if context.user_data.get("user").get("classTeacher") != 0:  # Teacher teaches any class.
-            await TeacherLeaderMenu(update, context)
-            
-        else:  # Teacher doesn't teach any class.
-            await TeacherMenu(update, context)
 
 
 async def MessagesHandler(update: Update, context: CallbackContext):
@@ -1693,191 +1541,25 @@ async def YesNoEntryHandler(update : Update, context : CallbackContext, stateNam
         await context.bot.send_message(chat_id = chatId, text = "Введено некоректне повідомлення")
 
 
-async def CheckAirDangerous(context : CallbackContext):
-    # respond = None
-    # with open(pathes.AIRDANGEROUS_JSON, 'r', encoding = "utf8") as file:
-    #     respond = json.load(file)
+async def MessagesHandlerAdminTeacher(update: Update, context: CallbackContext):
+    message : str = update.message.text
+    
+    if message == "АДМІНІСТРАТОР":
+        context.user_data["user"]["type"] = "admin"
+        await AdminMenu(update, context)
         
-    # respond = requests.get("https://ubilling.net.ua/aerialalerts/").json()
-    # if respond and (state := respond.get("states").get("Львівська область")):
-    import scripts.tools.config as config
-    respond = requests.get(config.AIR_DANG_URL, headers = config.AIR_DANG_HEADERS).json()[0]
-    if respond and (alter := respond.get("activeAlerts")):
-        if alter and not context.bot_data.get("isSendedNotifyAirDangerous"):
-            context.bot_data["isSendedNotifyAirDangerous"] = True
-            users = mongo.users.find({"chatID": {"$ne": None}})  # Get all active users.
-            for user in users:
-                await context.bot.send_message(chat_id = user.get("chatID"),
-                                                text = "🔴<b>УВАГА!\nОголошена повітряна тривога у Львівській області!</b>\n" + 
-                                                "Пройдіть в укриття!\n" + 
-                                                "Слідкуйте за подальшими повідомленнями.", parse_mode = "HTML")
-                
-        elif not alter and context.bot_data.get("isSendedNotifyAirDangerous"):
-            context.bot_data["isSendedNotifyAirDangerous"] = False
-            users = mongo.users.find({"chatID": {"$ne": None}})  # Get all active users.
-            for user in users:
-                await context.bot.send_message(chat_id = user.get("chatID"), text = "🟢<b>УВАГА! Відбій повітряної тривоги!</b>\n", parse_mode = "HTML")
+    else:
+        user = context.user_data.get("user")
+        
+        teacher = mongo.teachers.find_one({ "firstName"  : user.get("firstName"), 
+                                            "lastName"   : user.get("lastName"),
+                                            "fatherName" : user.get("fatherName")})
+            
+        context.user_data["user"]["classTeacher"] = int(teacher.get("classTeacher"))
+            
+        if context.user_data.get("user").get("classTeacher") != 0:  # Teacher teaches any class.
+            await TeacherLeaderMenu(update, context)
+            
+        else:  # Teacher doesn't teach any class.
+            await TeacherMenu(update, context)
 
-
-async def SendLessonNotification(context : CallbackContext):
-    if context.bot_data.get("isSendedNotifyAirDangerous"):
-        return
-    
-    chatId = context.user_data.get("user").get("id")
-    followLesson = FollowLesson(int(context.user_data.get("user").get("class")))
-    lessonData = await followLesson.GetCurrentLessonAsync()
-    
-    print(lessonData)
-    
-    if lessonData is not None:  # The lessons' time.
-        if not lessonData["isHoliday"] and not lessonData["isBreak"]:  # The lesson start or heppen.
-            if sendedLessonData := context.user_data.get("user").get("lessonData"):
-                # If we have sended msg about lesson to current user.
-                if sendedLessonData["infoLesson"] == lessonData["infoLesson"] and sendedLessonData["isBreak"] == lessonData["isBreak"]:
-                    return
-
-            # Sending.
-            await context.bot.send_message(chat_id = chatId, 
-                                            text = PhrasesGenerator(lessonData["infoLesson"]["name"], 
-                                                                    pathes.START_LESSON_PHRASES_TXT).GetRandomPhrase() +
-                                            "\nПочаток уроку : {}".format(lessonData["infoLesson"]["startTime"]) + 
-                                            "\nКінець уроку  : {}".format(lessonData["infoLesson"]["endTime"]),
-                                            parse_mode = "HTML")
-
-            context.user_data["user"]["lessonData"] = lessonData  # Save the info about lesson in our user.
-            print("the msg has been sent")
-
-        elif lessonData["isBreak"]:  # if we have a break.
-            if sendedLessonData := context.user_data.get("user").get("lessonData"):
-                if sendedLessonData["infoLesson"] == lessonData["infoLesson"] and sendedLessonData["isBreak"] == lessonData["isBreak"]:
-                    return
-
-            # Sending.
-            await context.bot.send_message(chat_id = chatId, 
-                    text = PhrasesGenerator(lessonData["infoLesson"]["name"], 
-                                            pathes.BREAK_PHRASES_TXT).GetRandomPhrase() +
-                                            "\nПочаток уроку : {}".format(lessonData["infoLesson"]["startTime"]) + 
-                                            "\nКінець уроку  : {}".format(lessonData["infoLesson"]["endTime"]),
-                                            parse_mode = "HTML")
-
-            context.user_data["user"]["lessonData"] = lessonData  # Save the info about lesson in our user.
-            print("the msg has been sent")
-
-
-
-# {
-#     "lastName"  : splitedMsg[0], str
-#     "firstName" : splitedMsg[1], str
-#     "fatherName": splitedMsg[2], str
-#     "class"     : int()
-#     "login"     : "",
-#     "password"  : ""
-# }
-def StudentExist(user) -> bool:    
-    if not user:
-        return False
-    
-    return mongo.students.find_one({ str(user["class"]) : {
-                                            "lastName"  : user.get("lastName"),
-                                            "firstName" : user.get("firstName"),
-                                            "fatherName": user.get("fatherName")}}) != None
-
-
-# {
-#     "login"   : "userLogin",
-#     "password": "userPassword"
-# }
-def UserExistInDB(userLoginData):
-    if not userLoginData:
-        return None
-    
-    return mongo.users.find_one({"logIn.login": userLoginData["login"], "logIn.password": userLoginData["password"]})
-
-
-def LoginExist(login) -> bool:
-    if not login:
-        return False
-
-    return bool(result := mongo.users.find_one({ "logIn.login": login }))
-
-
-def ChatIdIExistInDB(chatId):
-    return None if not chatId else mongo.users.find_one({"chatID" : chatId})
-
-
-def CheckPasssword(password):
-    if len(password) < 8:
-        return False
-    if not any(char.isdigit() for char in password):
-        return False
-    return any((char.isupper() for char in password))
-
-
-def IsValidEmail(email) -> bool:
-    if not email:
-        return False
-    
-    import re
-    pattern = r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$"
-    return re.match(pattern, email) != None
-
-
-def EmailExistInDB(email) -> bool:
-    return False if not email else mongo.users.find_one({"email" : email}) != None
-
-
-async def SentToAllWho(filter, message : str , context : CallbackContext):
-    users = mongo.users.find(filter)
-    for user in users:
-        if user.get("chatID"):
-            await context.bot.send_message(chat_id = user.get("chatID"), text = message, parse_mode = "HTML")    
-
-
-def UserExist(chatId, context: ContextTypes.DEFAULT_TYPE):
-    user = mongo.users.find_one({ "_id" : chatId })
-    Log(user)
-    if user:
-        context.user_data["user"] = user["user"]
-        return True
-    return False
-    # if not isJsonEmpty(pathes.USERS_JSON):
-    #     with open(pathes.USERS_JSON, 'r', encoding="utf8") as file:
-    #         userData = json.load(file).get(str(chatId))
-    #         if userData:
-    #             context.user_data["user"] = userData
-    #             return True
-    # return False
-
-
-def Log(msg):
-    print("--" * 30)
-    print(msg)
-    print("--" * 30)
-
-
-def ValidateUserNeme(name : str) -> str:
-    name = ValidateMsg(name)
-    import re
-    name = re.sub(r"\s+", " ", name)
-    return name
-
-
-def IsStudent(name: str) -> bool:
-    data     : list = name.split(" ")
-    students : dict = dict()
-
-    with open(pathes.STUDENTS_JSON, "r", encoding="utf8") as file:
-        students = json.load(file)[data[len(data) - 1]]
-
-    return any(
-        item["lastName"] in data
-        and item["firstName"] in data
-        and item["fatherName"] in data
-        for item in students
-    )
-
-
-def ValidateMsg(message : str) -> str:
-    message = message.lstrip(' +×÷=/_<>[]!@#₴%^&*()-":;,?`~\|{}€£¥$°•○●□■♤♡◇♧☆▪️¤《》¡¿')
-    message = message.rstrip(' +×÷=/_<>[]!@#₴%^&*()-":;,?`~\|{}€£¥$°•○●□■♤♡◇♧☆▪️¤《》¡¿')
-    return message
