@@ -20,21 +20,33 @@ async def Start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         userType = user.get("userType")
         
         if userType.get("developer") or userType.get("admin"):
-            context.user_data["user"]["type"] = "developer" if userType.get("developer") else "admin"
-            await AdminMenu(update, context)
+            # So, we might have a situation, when the admin might have subjects, that he is teaching.
+            # To diside this issue we create the menu, when the admin who is a teacher at the time 
+            # can choose, what type of entrance he feel like,
+            if userType.get("admin") and userType.get("teacher"):  # We get the situation, which we discriped top.
+                buttons = [["АДМІНІСТРАТОР"], ["ВЧИТЕЛЬ"]]
+                replyMarkup = ReplyKeyboardMarkup(buttons, resize_keyboard = True)
+                await context.bot.send_message(chat_id = update.effective_chat.id, text = "Виберіть тип користувача під яким намагаєтеся здійснити вхід.", reply_markup = replyMarkup)
+                return
             
+            context.user_data["user"]["type"] = "developer" if userType.get("developer") else "admin"
 
-        elif user.get("userType").get("teacher"):
+            await asyncio.sleep(1)
+            await context.bot.send_message(chat_id = update.effective_chat.id, text = "Вхід успішний!")
+
+            await AdminMenu(update, context)
+
+        elif userType.get("teacher"):
             teacher = mongo.teachers.find_one({ "firstName"  : user.get("firstName"), 
                                                 "lastName"   : user.get("lastName"),
                                                 "fatherName" : user.get("fatherName")})
             
             context.user_data["user"]["classTeacher"] = int(teacher.get("classTeacher"))
-            
-            if context.user_data.get("user").get("classTeacher") != 0:  # Teacher teaches any class.
+
+            if context.user_data.get("user").get("classTeacher") != 0:
                 await TeacherLeaderMenu(update, context)
-            
-            else:  # Teacher doesn't teach any class.
+        
+            else:
                 await TeacherMenu(update, context)
             
         else:
@@ -46,8 +58,6 @@ async def Start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def StartUserMenu(update: Update, context: ContextTypes.DEFAULT_TYPE, user):
-    context.user_data["user"]["_id"] = user.get("_id")
-    
     studentInfo = {
         "lastName": user.get("lastName"),
         "firstName": user.get("firstName"),
@@ -120,7 +130,8 @@ async def TeacherMenu(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def StudentMenu(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    context.job_queue.run_repeating(SendLessonNotification, interval = 2, first = 0, user_id = context.user_data.get("user").get("id"))
+    context.user_data["alertJob"] = context.job_queue.run_repeating(SendLessonNotification, interval = 2, first = 0, user_id = context.user_data.get("user").get("id"))
+    
     context.user_data["isStudentMenu"] = True
     
     buttons = [

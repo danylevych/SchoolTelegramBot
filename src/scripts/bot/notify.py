@@ -47,8 +47,6 @@ async def SendLessonNotification(context : CallbackContext):
     followLesson = FollowLesson(int(context.user_data.get("user").get("class")))
     lessonData = await followLesson.GetCurrentLessonAsync()
     
-    print(lessonData)
-    
     if lessonData is not None:  # The lessons' time.
         if not lessonData["isHoliday"] and not lessonData["isBreak"]:  # The lesson start or heppen.
             if sendedLessonData := context.user_data.get("user").get("lessonData"):
@@ -65,7 +63,6 @@ async def SendLessonNotification(context : CallbackContext):
                                             parse_mode = "HTML")
 
             context.user_data["user"]["lessonData"] = lessonData  # Save the info about lesson in our user.
-            print("the msg has been sent")
 
         elif lessonData["isBreak"]:  # if we have a break.
             if sendedLessonData := context.user_data.get("user").get("lessonData"):
@@ -81,7 +78,6 @@ async def SendLessonNotification(context : CallbackContext):
                                             parse_mode = "HTML")
 
             context.user_data["user"]["lessonData"] = lessonData  # Save the info about lesson in our user.
-            print("the msg has been sent")
 
 
 async def SentToAllWho(filter, message : str , context : CallbackContext):

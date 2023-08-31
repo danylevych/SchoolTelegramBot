@@ -150,7 +150,7 @@ async def EntryMenuHandler(update : Update, context : CallbackContext):
         else:
             await context.bot.send_message(chat_id = chatId, text = "Пароль неправильний!")
             await asyncio.sleep(1)
-            await context.bot.send_message(chat_id = chatId, text = "Спробувати ще раз?", reply_markup = replyMarkup)
+            await context.bot.send_message(chat_id = chatId, text = "Спробувати ще раз?", reply_markup = ReplyKeyboardMarkup([[yes, no]], resize_keyboard=True))
             context.user_data["logInState"] = PASSWORD_WRONG
 
     async def ForfotPasswordHandler():
@@ -336,7 +336,7 @@ async def EntryMenuHandler(update : Update, context : CallbackContext):
 
             mongo.users.insert_one(user)
             context.user_data["user"]["class"] = int(context.user_data.get("signInfo").get("class"))
-            context.user_data["user"]["_id"] = mongo.users.find_one(user).get("_id")
+            context.user_data["user"]["id"] = mongo.users.find_one(user).get("chatID")
             
             del context.user_data["signInfo"]
             del context.user_data["signState"]
@@ -612,7 +612,7 @@ async def TeacherLeaderMenuHandler(update : Update, context : CallbackContext):
     async def SendNotify(classNum, message):
         message = "<b>Оголошення від {} {} {}".format(context.user_data.get("user").get("lastName").upper(), 
                                                             context.user_data.get("user").get("firstName"),
-                                                            context.user_data.get("user").get("fatherName")) + message + ".</b>\n"
+                                                            context.user_data.get("user").get("fatherName")) + ":</b> <i>" + message + ".</i>\n"
         students = mongo.students.find_one({}, {str(classNum) : 1}).get(str(classNum))
             
         filter = { "$or" : students }
@@ -895,7 +895,7 @@ async def TeacherMenuHandler(update : Update, context : CallbackContext):
     async def SendNotify(classNum, message):
         message = "<b>Оголошення від {} {} {}".format(context.user_data.get("user").get("lastName").upper(), 
                                                             context.user_data.get("user").get("firstName"),
-                                                            context.user_data.get("user").get("fatherName")) + message + ".</b>\n"
+                                                            context.user_data.get("user").get("fatherName")) + ":</b> <i>" + message + ".</i>\n"
         students = mongo.students.find_one({}, {str(classNum) : 1}).get(str(classNum))
             
         filter = { "$or" : students }
@@ -1179,14 +1179,18 @@ async def StudentMenuHandler(update : Update, context : CallbackContext):
         context.user_data["backState"] = BACK_TO_CONTACT_MENU
         
         person = None
-        string = str()
+        phone  = None 
+        string : str = str()
+
         if type == "classTeacher":
             person = mongo.teachers.find_one({"classTeacher" : str(classNum)})
+            phone  = person.get("phoneNumber")
+
         elif type == "admin":
             person = mongo.users.find_one({"userType.admin" : True})
-            person = mongo.teachers.find_one({"firstName" : person.get("firstName"), "lastName" : person.get("lastName"), "fatherName" : person.get("fatherName")})
+            phone  = person.get("phone")
         
-        string += "ПІБ: {} {} {}\n моб.тел.: {}".format(person.get("lastName").upper(), person.get("firstName"), person.get("fatherName"), person.get("phoneNumber"))
+        string += "ПІБ: {} {} {}\nмоб.тел.: {}".format(person.get("lastName").upper(), person.get("firstName"), person.get("fatherName"), phone)
         await context.bot.send_message(chat_id = chatId, text = label, reply_markup = ReplyKeyboardMarkup([[back]], resize_keyboard = True))
         await context.bot.send_message(chat_id = chatId, text = string)
     
@@ -1200,7 +1204,6 @@ async def StudentMenuHandler(update : Update, context : CallbackContext):
     
     async def NoteMenu():
         context.user_data["backState"] = BACK_TO_MAIN_MENU
-        # TODO: add the chanche.
         
         buttons = [
             [KeyboardButton("Переглянути")],
@@ -1521,6 +1524,12 @@ async def StudentMenuHandler(update : Update, context : CallbackContext):
     
     elif "Вихід" == message:
         mongo.users.update_one({"chatID" : chatId}, {"$set" : {"chatID" : None}})
+
+        if "alertJob" in context.user_data:
+            job = context.user_data["alertJob"]
+            job.schedule_removal()  # delete alert for current user.
+            del context.user_data["alertJob"]
+
         del context.user_data["isStudentMenu"]
         await Start(update, context)
 

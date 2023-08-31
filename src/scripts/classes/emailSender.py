@@ -17,7 +17,6 @@ class Email:
         smtpUsername = self.senderEmail
         smtpPassword = self.senderPassword
         
-        # Надсилаємо повідомлення
         server = smtplib.SMTP(self.smtpServer, self.smtpPort)
         server.starttls()
         server.login(smtpUsername, smtpPassword)

@@ -61,3 +61,27 @@ ccqow3f5po
 Статус тривоги
 Нотатки
 Вихід
+
+
+
+_id
+64b7e15d4ac7ebfd25878ef1
+chatID
+null
+fatherName
+"Васильович"
+firstName
+"Валентин"
+lastName
+"Вітів"
+phone
+null
+email
+"danylevych123@gmail.com"
+
+logIn
+Object
+login
+"danylevych123@gmail.com"
+password
+"Vv08te4ym21y1od95c56a"
