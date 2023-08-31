@@ -1,3 +1,2 @@
 pymongo
-telegram
 python-telegram-bot
