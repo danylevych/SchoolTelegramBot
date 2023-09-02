@@ -30,19 +30,19 @@ class TimetableBase:
         self.currentDate  = None
     
     def IsHoliday(self) -> Holiday:
-        # with open(pathes.VACATION_JSON, "r", encoding="utf8") as file:
-        #     if seasonVacation := json.load(file)[GetSeason(self.currentDate.month)]:
-        #         dateFormat = "%d.%m.%Y"
-        #         startVacation = datetime.strptime(seasonVacation.get("startVacation"), dateFormat)
-        #         endVacation = datetime.strptime(seasonVacation.get("endVacation"), dateFormat)
+        with open(pathes.VACATION_JSON, "r", encoding="utf8") as file:
+            if seasonVacation := json.load(file)[GetSeason(self.currentDate.month)]:
+                dateFormat = "%d.%m.%Y"
+                startVacation = datetime.strptime(seasonVacation.get("startVacation"), dateFormat)
+                endVacation = datetime.strptime(seasonVacation.get("endVacation"), dateFormat)
 
-        #         timezone = pytz.timezone("Europe/Kiev")
-        #         startVacation = timezone.localize(startVacation)
-        #         endVacation = timezone.localize(endVacation)
-        #         # self.currentDate = timezone.localize(self.currentDate)
+                timezone = pytz.timezone("Europe/Kiev")
+                startVacation = timezone.localize(startVacation)
+                endVacation = timezone.localize(endVacation)
+                # self.currentDate = timezone.localize(self.currentDate)
 
-        #         if startVacation <= self.currentDate <= endVacation:
-        #             return Holiday.VACATION
+                if startVacation <= self.currentDate <= endVacation:
+                    return Holiday.VACATION
 
         
         if self.currentDay not in ("monday", "tuesday", "wednesday", "thursday", "friday"):
@@ -53,9 +53,9 @@ class TimetableBase:
     
     
     def SetCurrentDateTime(self):
-        self.currentDate = datetime(2023, 9, 4, 12, 25, tzinfo = pytz.timezone('Europe/Kiev')) #datetime.now(pytz.timezone('Europe/Kiev'))
-        self.currentTime = time(12, 25, tzinfo = pytz.timezone('Europe/Kiev')) # datetime.now(pytz.timezone('Europe/Kiev')).time()
-        self.currentDay  = "monday" # datetime.now(pytz.timezone('Europe/Kiev')).strftime('%A').lower()
+        self.currentDate = datetime.now(pytz.timezone('Europe/Kiev'))
+        self.currentTime = datetime.now(pytz.timezone('Europe/Kiev')).time()
+        self.currentDay  = datetime.now(pytz.timezone('Europe/Kiev')).strftime('%A').lower()
 
 
 class TimetableForTeacher(TimetableBase):
@@ -107,7 +107,7 @@ class TimetableForTeacher(TimetableBase):
                 return "Зараз в школі канікули."
         
         string = str()
-        currentTime = currentTime = time(12, 25, tzinfo = pytz.timezone('Europe/Kiev')) # datetime.now(pytz.timezone('Europe/Kiev')).time()
+        currentTime = currentTime = datetime.now(pytz.timezone('Europe/Kiev')).time()
 
         for lessonNum in sorted(self.returnedData.keys()):
             lessonInfo = self.returnedData[lessonNum]

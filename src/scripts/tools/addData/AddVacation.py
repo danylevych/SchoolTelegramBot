@@ -3,18 +3,6 @@ import sys
 sys.path.append("src/scripts/tools/")
 import pathes
 
-# from datetime import datetime
-
-# date_string = "01.01.2023"
-# date_format = "%d.%m.%Y"
-
-# try:
-#     date_object = datetime.strptime(date_string, date_format)
-#     print("Об'єкт datetime:", date_object)
-# except ValueError as ve:
-#     print("Помилка при перетворенні:", ve)
-
-
 data = dict()
 
 with open(pathes.VACATION_TXT, "r", encoding = "utf8") as file:
