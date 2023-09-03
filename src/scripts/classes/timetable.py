@@ -204,7 +204,7 @@ class TimetableForStudent(TimetableBase):
         # TODO: check if hommework is actual.
         homeworks = mongo.homeworks.find({"$or": tomorrowTimetabe})
         
-        if not list(homeworks):
+        if not list(homeworks) or len(list(homeworks)) == 0:
             return "Домашньої роботи на завтра не знайдено.)"
 
         string = f"Домашнє завдання на {ukrNamesOfDay.get(tomorrow).lower()}" + ":\n"
@@ -220,7 +220,7 @@ class TimetableForStudent(TimetableBase):
     def AsString(self):
         if self.returnedData is None:
             if self.holiday == Holiday.WEEKDAYS:
-                return "Зараз вихідні, ви не можете переглянути розклад на день."
+                return "Зараз вихідні, ви не можете переглянути розклад на цей день."
             else:
                 return "Зараз канікули."
         

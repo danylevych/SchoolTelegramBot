@@ -166,7 +166,7 @@ async def EntryMenuHandler(update : Update, context : CallbackContext):
                         "Бажаємо гарного дня")
 
     async def ForfotPasswordEnterCodeHandler():
-        if rightCode := context.user_data.get("code"):
+        if rightCode := context.user_data.get("code"):  # Checking user code.
             if str(rightCode) in message:
                 await context.bot.send_message(chat_id = chatId, text = "Ви успішно підтвердили свою пошту.\nДалі введіть новий пароль", parse_mode = "HTML") 
                 
@@ -180,7 +180,6 @@ async def EntryMenuHandler(update : Update, context : CallbackContext):
 
     async def ForgotPasswordEnterNewHandler():
         await asyncio.sleep(1)
-        await context.bot.delete_message(chat_id = chatId, message_id = messageId)  # Delete the password, that user provided.
         
         if CheckPasssword(message):
             if context.user_data.get("isEntryMenu"):
@@ -189,7 +188,7 @@ async def EntryMenuHandler(update : Update, context : CallbackContext):
             mongo.users.update_one({"logIn.login": context.user_data.get("logIn").get("login")}, {"$set": {"chatID": chatId, "logIn.password": message}})
             await context.bot.send_message(chat_id = chatId, text = "Ви успішно відновили пароль.")
             
-            await EnterPasswordHandler()
+            await EnterPasswordHandler() # Go and open user menu.
             
         else:
             await context.bot.send_message(chat_id = chatId, text = "Ви ввели пароль, який не відповідає вимогам. Будь ласка повторіть введення.") 
