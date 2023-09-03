@@ -184,7 +184,7 @@ class TimetableForStudent(TimetableBase):
         tomorrow = self.GetTomorrow()
         
         if not tomorrow:
-            if self.dayType == Holiday.VACATION:
+            if self.dayType == DayType.VACATION:
                 return "Домашнього завдання на канікулах не роблять.)"
             else: 
                 return "На жаль, сталася якась помилка."
