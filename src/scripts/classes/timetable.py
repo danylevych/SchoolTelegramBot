@@ -119,7 +119,6 @@ class TimetableForTeacher(TimetableBase):
             string += ("<b>" if startTime <= currentTime <= endTime else "") + f"Урок №{lessonNum} - {lessonName}, у {classNum}-ому класі.\n"
             string += f"\t- Початок: {startTime.strftime('%H:%M')}\n"
             string += f"\t- Кінець:  {endTime.strftime('%H:%M')}" + ("</b>" if startTime <= currentTime <= endTime else "") + "\n\n"
-            print(string)
 
         return string
 
@@ -235,7 +234,6 @@ class TimetableForStudent(TimetableBase):
             }
             
             for (dayName, dayTimetable) in self.returnedData.items():
-                print(self.currentDay, dayName)
                 if self.currentDay == dayName:
                     resultStr += "<b>"
                     

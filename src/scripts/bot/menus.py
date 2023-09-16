@@ -43,7 +43,8 @@ async def Start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             
             context.user_data["user"]["classTeacher"] = int(teacher.get("classTeacher"))
 
-            if context.user_data.get("user").get("classTeacher") != 0:
+            classTeacher = context.user_data.get("user").get("classTeacher")
+            if classTeacher != 0 or (type(classTeacher) != list):
                 await TeacherLeaderMenu(update, context)
         
             else:

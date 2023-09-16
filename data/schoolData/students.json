@@ -1,6 +1,33 @@
 {
     "1": [
         {
+            "lastName": "Жемевко",
+            "firstName": "Ярема",
+            "fatherName": "Андрійович"
+        },
+        {
+            "lastName": "Матвіїв",
+            "firstName": "Владислав",
+            "fatherName": "Романович"
+        },
+        {
+            "lastName": "Матвіїв",
+            "firstName": "Юлія",
+            "fatherName": "Юріївна"
+        },
+        {
+            "lastName": "Мачульський",
+            "firstName": "Артем",
+            "fatherName": "Романович"
+        },
+        {
+            "lastName": "Рудик",
+            "firstName": "Остап",
+            "fatherName": "Тарасович"
+        }
+    ],
+    "2": [
+        {
             "lastName": "Атаманчук",
             "firstName": "Ольга",
             "fatherName": "Михайлівна"
@@ -34,9 +61,14 @@
             "lastName": "Федорків",
             "firstName": "Ігор",
             "fatherName": "Михайлович"
+        },
+        {
+            "lastName": "Цвенюк",
+            "firstName": "Діана",
+            "fatherName": "Володимирівна"
         }
     ],
-    "2": [
+    "3": [
         {
             "lastName": "Гнатів",
             "firstName": "Катерина",
@@ -68,7 +100,7 @@
             "fatherName": "Олегович"
         }
     ],
-    "3": [
+    "4": [
         {
             "lastName": "Бабій",
             "firstName": "Сергій",
@@ -109,130 +141,5 @@
             "firstName": "Назар",
             "fatherName": "Олегович"
         }
-    ],
-    "4": [
-        {
-            "lastName": "Дунець",
-            "firstName": "Анна",
-            "fatherName": "Романівна"
-        },
-        {
-            "lastName": "Карпа",
-            "firstName": "Юлія",
-            "fatherName": "Євгенівна"
-        },
-        {
-            "lastName": "Карпин",
-            "firstName": "Марко",
-            "fatherName": "Мар’янович"
-        },
-        {
-            "lastName": "Курячий",
-            "firstName": "Владислав",
-            "fatherName": "Іванович"
-        },
-        {
-            "lastName": "Наливайко",
-            "firstName": "Богдана",
-            "fatherName": "Петрівна"
-        }
-    ],
-    "5": [
-        {
-            "lastName": "Герчак",
-            "firstName": "Анна",
-            "fatherName": "Ігорівна"
-        },
-        {
-            "lastName": "Дендак",
-            "firstName": "Вікторія",
-            "fatherName": "Миколаївна"
-        },
-        {
-            "lastName": "Жемевко",
-            "firstName": "Ростислав",
-            "fatherName": "Андрійович"
-        },
-        {
-            "lastName": "Карпин",
-            "firstName": "Юліан",
-            "fatherName": "Іванович"
-        },
-        {
-            "lastName": "Наливайко",
-            "firstName": "Олександра",
-            "fatherName": "Петрівна"
-        },
-        {
-            "lastName": "Фок",
-            "firstName": "Віталій",
-            "fatherName": "Андрійович"
-        },
-        {
-            "lastName": "Чудийович",
-            "firstName": "Дмитро",
-            "fatherName": "Михайлович"
-        },
-        {
-            "lastName": "Явдик",
-            "firstName": "Орест",
-            "fatherName": "Олегович"
-        },
-        {
-            "lastName": "Піцан",
-            "firstName": "",
-            "fatherName": "Катерина"
-        },
-        {
-            "lastName": "Саракун",
-            "firstName": "",
-            "fatherName": "Ірина"
-        }
-    ],
-    "6": [
-        {
-            "lastName": "Дідик",
-            "firstName": "Анастасія",
-            "fatherName": "Василівна"
-        },
-        {
-            "lastName": "Матвіїв",
-            "firstName": "Соломія",
-            "fatherName": "Юріївна"
-        },
-        {
-            "lastName": "Суска",
-            "firstName": "Божена",
-            "fatherName": "Богданівна"
-        },
-        {
-            "lastName": "Суховерський",
-            "firstName": "Іван",
-            "fatherName": "Васильович"
-        }
-    ],
-    "7": null,
-    "8": [
-        {
-            "lastName": "Андрусик",
-            "firstName": "Маркіян",
-            "fatherName": "Богданович"
-        },
-        {
-            "lastName": "Вітів",
-            "firstName": "Валентин",
-            "fatherName": "Васильович"
-        },
-        {
-            "lastName": "Волчук",
-            "firstName": "Ілля",
-            "fatherName": "Романович"
-        },
-        {
-            "lastName": "Зінько",
-            "firstName": "Вікторія",
-            "fatherName": "Михайлівна"
-        }
-    ],
-    "9": null
+    ]
 }

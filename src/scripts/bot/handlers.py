@@ -225,13 +225,11 @@ async def EntryMenuHandler(update : Update, context : CallbackContext):
     async def RegistrationClassEnterHandler():
         try:
             classNum = int(message)
-            print("class ", classNum)
             
             context.user_data["signInfo"]["class"] = classNum
             await context.bot.send_message(chat_id = chatId, text = "Зачекайте! Здійснюється перевірка ваших даних!")
             # TODO: sleep
             if StudentExist(context.user_data["signInfo"]):
-                print("we are here")
                 await context.bot.send_message(chat_id = chatId, text = "Перевірка пройшла успішно!")
                 await context.bot.send_message(chat_id = chatId, text = "Далі введіть свою електронну пошту.")
                 context.user_data["signState"] = REGISTRATION_EMAIL_ENTER  # User is going to send his e-mail.
@@ -1183,7 +1181,7 @@ async def StudentMenuHandler(update : Update, context : CallbackContext):
         string : str = str()
 
         if type == "classTeacher":
-            person = mongo.teachers.find_one({"classTeacher" : str(classNum)})
+            person = mongo.teachers.find_one({"classTeacher" : {"$in": [str(classNum)]}})
             phone  = person.get("phoneNumber")
 
         elif type == "admin":
