@@ -22,7 +22,8 @@ async def CheckAirDangerous(context : CallbackContext):
     
     import scripts.tools.config as config
     respond = requests.get(config.AIR_DANG_URL, headers = config.AIR_DANG_HEADERS).json()[0]
-    if respond and (alter := respond.get("activeAlerts")):
+    if respond:
+        alter = respond.get("activeAlerts") # Get the air alert state.
         if alter and not context.bot_data.get("isSendedNotifyAirDangerous"):
             context.bot_data["isSendedNotifyAirDangerous"] = True
             users = mongo.users.find({"chatID": {"$ne": None}})  # Get all active users.
